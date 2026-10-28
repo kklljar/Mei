@@ -122,7 +122,8 @@ fun CommonOverlayHandler(
                 onDismiss = { overlayHandler.dismiss() },
                 onConfirm = { name, privacy ->
                     overlayHandler.createPlaylist(name, privacy)
-                }
+                },
+                isSubmitting = overlayHandler.isCreatingPlaylist.value
             )
         }
 

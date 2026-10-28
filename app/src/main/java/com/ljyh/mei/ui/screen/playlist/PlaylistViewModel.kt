@@ -32,9 +32,12 @@ import com.ljyh.mei.utils.get
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -47,7 +50,17 @@ class PlaylistViewModel @Inject constructor(
     private val localPlaylistRepository: com.ljyh.mei.di.repository.LocalPlaylistRepository,
     val apiService: ApiService
 ) : ViewModel() {
-    val userId = AppContext.instance.dataStore[UserIdKey] ?: ""
+    private val userIdState = AppContext.instance.dataStore.data
+        .map { preferences -> preferences[UserIdKey].orEmpty() }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ""
+        )
+
+    val userId: String
+        get() = userIdState.value
     private val _playlistDetail = MutableStateFlow<Resource<PlaylistDetail>>(Resource.Loading)
     val playlistDetail: StateFlow<Resource<PlaylistDetail>> = _playlistDetail
 
@@ -212,27 +225,17 @@ class PlaylistViewModel @Inject constructor(
     }
     fun getAllMePlaylist(){
         viewModelScope.launch {
-            _playlist.value = localPlaylistRepository.getPlaylistByAuthor(userId)
-            if (userId.isNotEmpty()) {
-                when (val result = userRepository.getUserPlaylist(userId, 100)) {
+            val uid = userIdState.value
+            if (uid.isBlank()) {
+                _playlist.value = emptyList()
+                return@launch
+            }
+            _playlist.value = localPlaylistRepository.getPlaylistByAuthor(uid)
+            if (uid.isNotEmpty()) {
+                when (val result = userRepository.getAllUserPlaylists(uid, 100)) {
                     is Resource.Success -> {
-                        val playlistsToInsert = result.data.playlist.map {
-                            val existing = localPlaylistRepository.getPlaylist(it.id.toString())
-                            Playlist(
-                                id = it.id.toString(),
-                                title = it.name,
-                                cover = it.coverImgUrl,
-                                author = it.creator.userId.toString(),
-                                authorName = it.creator.nickname,
-                                authorAvatar = it.creator.avatarUrl,
-                                count = it.trackCount,
-                                playCount = it.playCount,
-                                lastPlayTime = existing?.lastPlayTime ?: 0L,
-                                localPlayCount = existing?.localPlayCount ?: 0
-                            )
-                        }
-                        localPlaylistRepository.insertPlaylists(playlistsToInsert)
-                        _playlist.value = localPlaylistRepository.getPlaylistByAuthor(userId)
+                        localPlaylistRepository.reconcileUserPlaylists(result.data.playlist)
+                        _playlist.value = localPlaylistRepository.getPlaylistByAuthor(uid)
                     }
                     is Resource.Error -> {}
                     Resource.Loading -> {}
@@ -255,11 +258,24 @@ class PlaylistViewModel @Inject constructor(
     fun createPlaylist(
         name: String,
         privacy: Boolean =  false, // 0 普通歌单, 10 隐私歌单
-        type: String = "NORMAL" // 默认 NORMAL, VIDEO 视频歌单, SHARED 共享歌单
+        type: String = "NORMAL", // 默认 NORMAL, VIDEO 视频歌单, SHARED 共享歌单
+        onComplete: (Resource<CreatePlaylistResult>) -> Unit = {}
     ) {
         viewModelScope.launch {
             _createPlaylist.value = Resource.Loading
-            _createPlaylist.value = repository.createPlaylist(name, privacy, type)
+            val result = repository.createPlaylist(name, privacy, type)
+            _createPlaylist.value = result
+            val uid = userIdState.value
+            if (result is Resource.Success && result.data.code == 200 && uid.isNotBlank()) {
+                when (val playlists = userRepository.getAllUserPlaylists(uid, 100)) {
+                    is Resource.Success -> {
+                        localPlaylistRepository.reconcileUserPlaylists(playlists.data.playlist)
+                        _playlist.value = localPlaylistRepository.getPlaylistByAuthor(uid)
+                    }
+                    is Resource.Error, Resource.Loading -> Unit
+                }
+            }
+            onComplete(result)
         }
     }
 

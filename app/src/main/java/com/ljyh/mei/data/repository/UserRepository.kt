@@ -48,6 +48,34 @@ class UserRepository(private val apiService: ApiService,private val eApiService:
             }
         }
     }
+
+    suspend fun getAllUserPlaylists(uid: String, pageSize: Int = 100): Resource<UserPlaylist> {
+        return withContext(Dispatchers.IO) {
+            safeApiCall {
+                val playlists = linkedMapOf<Long, UserPlaylist.Playlist>()
+                var offset = 0
+                var pageCount = 0
+                var hasMore: Boolean
+                do {
+                    check(pageCount++ < 100) { "用户歌单分页异常，请稍后重试" }
+                    val page = apiService.getUserPlaylist(
+                        GetUserPlaylist(
+                            uid = uid,
+                            limit = pageSize.toString(),
+                            offset = offset.toString()
+                        )
+                    )
+                    page.playlist.forEach { playlists[it.id] = it }
+                    hasMore = page.more
+                    if (hasMore) {
+                        check(page.playlist.isNotEmpty()) { "用户歌单分页未返回数据" }
+                        offset += page.playlist.size
+                    }
+                } while (hasMore)
+                UserPlaylist(code = 200, more = false, playlist = playlists.values.toList())
+            }
+        }
+    }
     suspend fun getPhotoAlbum(id: String): Resource<AlbumPhoto> {
         return withContext(Dispatchers.IO) {
             safeApiCall {

@@ -2,11 +2,16 @@ package com.ljyh.mei.ui.screen.playlist.component
 
 import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.data.model.room.Playlist
 import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.playlist.AddToPlaylistSheet
+import com.ljyh.mei.ui.component.playlist.CreatePlaylistSheet
 import com.ljyh.mei.ui.component.playlist.TrackActionMenu
 import com.ljyh.mei.ui.model.UiPlaylist
 import com.ljyh.mei.ui.screen.playlist.PlaylistViewModel
@@ -26,6 +31,8 @@ fun PlaylistActionOverlay(
     viewModel: PlaylistViewModel
 ) {
     val context = LocalContext.current
+    var pendingAddMediaId by remember { mutableStateOf<Long?>(null) }
+    var isCreatingPlaylist by remember { mutableStateOf(false) }
 
     when (overlay) {
         is OverlayState.AddToPlaylist -> {
@@ -33,7 +40,7 @@ fun PlaylistActionOverlay(
                 playlists = allMePlaylist,
                 onDismiss = onDismiss,
                 onCreateNewPlaylist = {
-                    // 这里可以跳转到创建歌单的 Overlay 或页面
+                    pendingAddMediaId = overlay.mediaId
                     onUpdateOverlay(OverlayState.CreatePlaylist)
                 },
                 onSelectPlaylist = { selectedPlaylist ->
@@ -51,6 +58,53 @@ fun PlaylistActionOverlay(
                     }
                     onDismiss()
                 }
+            )
+        }
+
+        OverlayState.CreatePlaylist -> {
+            CreatePlaylistSheet(
+                onDismiss = {
+                    val mediaId = pendingAddMediaId
+                    if (mediaId != null) {
+                        onUpdateOverlay(OverlayState.AddToPlaylist(mediaId))
+                    } else {
+                        onDismiss()
+                    }
+                },
+                onConfirm = { name, privacy ->
+                    if (!isCreatingPlaylist) {
+                        isCreatingPlaylist = true
+                        viewModel.createPlaylist(name, privacy) { result ->
+                            isCreatingPlaylist = false
+                            when (result) {
+                                is com.ljyh.mei.data.network.Resource.Success -> {
+                                    if (result.data.code == 200) {
+                                        Toast.makeText(context, "歌单“$name”已创建", Toast.LENGTH_SHORT).show()
+                                        val mediaId = pendingAddMediaId
+                                        if (mediaId != null) {
+                                            onUpdateOverlay(OverlayState.AddToPlaylist(mediaId))
+                                        } else {
+                                            onDismiss()
+                                        }
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "创建歌单失败（${result.data.code}）",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                                is com.ljyh.mei.data.network.Resource.Error -> Toast.makeText(
+                                    context,
+                                    "创建歌单失败：${result.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                com.ljyh.mei.data.network.Resource.Loading -> Unit
+                            }
+                        }
+                    }
+                },
+                isSubmitting = isCreatingPlaylist
             )
         }
 
@@ -89,7 +143,6 @@ fun PlaylistActionOverlay(
             )
         }
 
-        // 可以在这里扩展 OverlayState.CreatePlaylist 等
         else -> {}
     }
 }

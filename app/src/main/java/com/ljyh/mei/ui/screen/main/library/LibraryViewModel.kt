@@ -194,26 +194,9 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun syncUserPlaylists(uid: String, limit: Int = 100) {
-        when (val networkResult = repository.getUserPlaylist(uid, limit)) {
+        when (val networkResult = repository.getAllUserPlaylists(uid, limit)) {
             is Resource.Success -> {
-                val existingPlaylists = localPlaylistRepository.getPlaylistByAuthor(uid)
-                val existingMap = existingPlaylists.associateBy { it.id }
-                val playlistsToInsert = networkResult.data.playlist.map {
-                    val existing = existingMap[it.id.toString()]
-                    Playlist(
-                        id = it.id.toString(),
-                        title = it.name,
-                        cover = it.coverImgUrl,
-                        author = it.creator.userId.toString(),
-                        authorName = it.creator.nickname,
-                        authorAvatar = it.creator.avatarUrl,
-                        count = it.trackCount,
-                        playCount = it.playCount,
-                        lastPlayTime = existing?.lastPlayTime ?: 0L,
-                        localPlayCount = existing?.localPlayCount ?: 0
-                    )
-                }
-                localPlaylistRepository.insertPlaylists(playlistsToInsert)
+                localPlaylistRepository.reconcileUserPlaylists(networkResult.data.playlist)
             }
             is Resource.Error -> Unit
             Resource.Loading -> Unit

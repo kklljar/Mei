@@ -16,6 +16,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.data.model.room.Playlist
+import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.player.PlayerViewModel
 import com.ljyh.mei.ui.component.player.state.PlayerStateContainer
@@ -44,6 +45,9 @@ class PlayerOverlayHandler(
 ) {
     private val _currentOverlay = mutableStateOf<OverlayState>(OverlayState.None)
     val currentOverlay: State<OverlayState> = _currentOverlay
+    private val _isCreatingPlaylist = mutableStateOf(false)
+    val isCreatingPlaylist: State<Boolean> = _isCreatingPlaylist
+    private var pendingAddMediaId: Long? = null
 
     private val _tabletPanel = mutableStateOf(TabletPlayerPanel.Lyrics)
     val tabletPanel: State<TabletPlayerPanel> = _tabletPanel
@@ -99,6 +103,7 @@ class PlayerOverlayHandler(
      * 显示创建播放列表弹窗
      */
     fun showCreatePlaylist() {
+        pendingAddMediaId = (_currentOverlay.value as? OverlayState.AddToPlaylist)?.mediaId
         _currentOverlay.value = OverlayState.CreatePlaylist
     }
 
@@ -229,7 +234,37 @@ class PlayerOverlayHandler(
      * 创建新播放列表
      */
     fun createPlaylist(name: String, privacy: Boolean) {
-        stateContainer.playerViewModel.createPlaylist(name, privacy)
+        if (_isCreatingPlaylist.value) return
+        _isCreatingPlaylist.value = true
+        stateContainer.playerViewModel.createPlaylist(name, privacy) { result ->
+            _isCreatingPlaylist.value = false
+            when (result) {
+                is Resource.Success -> {
+                    if (result.data.code == 200) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "歌单“$name”已创建",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        _currentOverlay.value = pendingAddMediaId
+                            ?.let(OverlayState::AddToPlaylist)
+                            ?: OverlayState.None
+                    } else {
+                        android.widget.Toast.makeText(
+                            context,
+                            "创建歌单失败（${result.data.code}）",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                is Resource.Error -> android.widget.Toast.makeText(
+                    context,
+                    "创建歌单失败：${result.message}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                Resource.Loading -> Unit
+            }
+        }
     }
 
     private fun requestNotificationPermission() {

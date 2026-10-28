@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,7 +58,8 @@ fun CreatePlaylistSheet(
     defaultText: String = "",
     defaultHidden: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirm: (text: String, privacy: Boolean) -> Unit
+    onConfirm: (text: String, privacy: Boolean) -> Unit,
+    isSubmitting: Boolean = false
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var text by remember { mutableStateOf(defaultText) }
@@ -127,7 +129,7 @@ fun CreatePlaylistSheet(
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
-                        if (text.isNotBlank()) {
+                        if (text.isNotBlank() && !isSubmitting) {
                             onConfirm(text, isPrivate)
                             focusManager.clearFocus()
                         }
@@ -198,13 +200,21 @@ fun CreatePlaylistSheet(
 
                 Button(
                     onClick = { onConfirm(text, isPrivate) },
-                    enabled = text.isNotBlank(), // 没字的时候禁用
+                    enabled = text.isNotBlank() && !isSubmitting,
                     modifier = Modifier.width(100.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    Text("完成")
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("完成")
+                    }
                 }
             }
         }

@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -83,7 +84,17 @@ class PlayerViewModel @Inject constructor(
 
     var mediaMetadata: MediaMetadata? = null
 
-    val userId = AppContext.instance.dataStore[UserIdKey] ?: ""
+    private val userIdState = AppContext.instance.dataStore.data
+        .map { preferences -> preferences[UserIdKey].orEmpty() }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ""
+        )
+
+    val userId: String
+        get() = userIdState.value
 
     val localPlaylists: StateFlow<List<Playlist>> = localPlaylistRepository.getAllPlaylist()
         .stateIn(
@@ -92,8 +103,12 @@ class PlayerViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
-    val myPlaylists: StateFlow<List<Playlist>> = localPlaylistRepository.getAllPlaylist()
-        .map { it.filter { p -> p.author == userId } }
+    val myPlaylists: StateFlow<List<Playlist>> = combine(
+        localPlaylistRepository.getAllPlaylist(),
+        userIdState
+    ) { playlists, uid ->
+        if (uid.isBlank()) emptyList() else playlists.filter { playlist -> playlist.author == uid }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000L),
@@ -155,20 +170,9 @@ class PlayerViewModel @Inject constructor(
     fun syncUserPlaylists(uid: String, limit: Int = 100) {
         viewModelScope.launch {
             _networkPlaylistsState.value = Resource.Loading
-            when (val networkResult = userRepository.getUserPlaylist(uid, limit)) {
+            when (val networkResult = userRepository.getAllUserPlaylists(uid, limit)) {
                 is Resource.Success -> {
-                    val playlistsToInsert = networkResult.data.playlist.map {
-                        Playlist(
-                            id = it.id.toString(),
-                            title = it.name,
-                            cover = it.coverImgUrl,
-                            author = it.creator.userId.toString(),
-                            authorName = it.creator.nickname,
-                            authorAvatar = it.creator.avatarUrl,
-                            count = it.trackCount
-                        )
-                    }
-                    localPlaylistRepository.insertPlaylists(playlistsToInsert)
+                    localPlaylistRepository.reconcileUserPlaylists(networkResult.data.playlist)
                     _networkPlaylistsState.value = networkResult
                 }
 
@@ -184,11 +188,21 @@ class PlayerViewModel @Inject constructor(
     fun createPlaylist(
         name: String,
         privacy: Boolean = false, // 0 普通歌单, 10 隐私歌单
-        type: String = "NORMAL" // 默认 NORMAL, VIDEO 视频歌单, SHARED 共享歌单
+        type: String = "NORMAL", // 默认 NORMAL, VIDEO 视频歌单, SHARED 共享歌单
+        onComplete: (Resource<CreatePlaylistResult>) -> Unit = {}
     ) {
         viewModelScope.launch {
             _createPlaylist.value = Resource.Loading
-            _createPlaylist.value = playlistRepository.createPlaylist(name, privacy, type)
+            val result = playlistRepository.createPlaylist(name, privacy, type)
+            _createPlaylist.value = result
+            val uid = userIdState.value
+            if (result is Resource.Success && result.data.code == 200 && uid.isNotBlank()) {
+                when (val playlists = userRepository.getAllUserPlaylists(uid, 100)) {
+                    is Resource.Success -> localPlaylistRepository.reconcileUserPlaylists(playlists.data.playlist)
+                    is Resource.Error, Resource.Loading -> Unit
+                }
+            }
+            onComplete(result)
         }
     }
 
