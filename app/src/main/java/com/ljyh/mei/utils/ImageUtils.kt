@@ -20,20 +20,22 @@ import okhttp3.Request
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import androidx.core.graphics.createBitmap
+import com.ljyh.mei.utils.image.ArtworkSize
+import com.ljyh.mei.utils.image.artworkImage
 
 fun String.smallImage(): String {
     if (this.startsWith("/")) return this
-    return "$this?param=100y100"
+    return artworkImage(ArtworkSize.Small)
 }
 
 fun String.middleImage(): String {
     if (this.startsWith("/")) return this
-    return "$this?param=300y300"
+    return artworkImage(ArtworkSize.Card)
 }
 
 fun String.largeImage(): String {
     if (this.startsWith("/")) return this
-    return "$this?param=500y500"
+    return artworkImage(ArtworkSize.Detail)
 }
 
 fun String.size1600():String{

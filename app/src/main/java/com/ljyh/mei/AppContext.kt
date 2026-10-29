@@ -11,6 +11,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import com.ljyh.mei.utils.image.ArtworkRequestInterceptor
 
 @HiltAndroidApp
 class AppContext : Application(), SingletonImageLoader.Factory {
@@ -46,6 +47,7 @@ class AppContext : Application(), SingletonImageLoader.Factory {
                 newDiskCache()
             }
             .components {
+                add(ArtworkRequestInterceptor())
                 add(OkHttpNetworkFetcherFactory(okHttpClient))
             }
             .build()

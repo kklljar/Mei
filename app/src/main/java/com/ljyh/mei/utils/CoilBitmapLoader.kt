@@ -9,6 +9,7 @@ import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.ljyh.mei.utils.image.ArtworkSize
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.SettableFuture
@@ -45,6 +46,7 @@ class CoilBitmapLoader(
 
         val request = ImageRequest.Builder(context)
             .data(data)
+            .size(ArtworkSize.Card.pixels)
             // 禁用硬件位图。Media3 的某些组件（如视频处理的 Overlay）需要软件位图，
             // 设置为 false 可以提高兼容性，避免潜在的运行时异常。
             .allowHardware(false)

@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import com.ljyh.mei.utils.image.originalArtwork
 
 
 /**
@@ -28,7 +29,7 @@ suspend fun saveImageToGallery(context: Context, imageUrl: String) {
 
         // 1. 使用 Coil Loader 获取 Bitmap
         val request = ImageRequest.Builder(context)
-            .data(imageUrl)
+            .originalArtwork(imageUrl)
             .allowHardware(false) // 必须禁用硬件加速才能获取 Bitmap
             .build()
 

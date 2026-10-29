@@ -41,6 +41,7 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.gif.AnimatedImageDecoder
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.ljyh.mei.utils.image.ArtworkRequestInterceptor
 import coil3.request.crossfade
 import com.ljyh.mei.constants.AppBarHeight
 import com.ljyh.mei.constants.DynamicThemeKey
@@ -99,6 +100,7 @@ fun MeiApp(
     setSingletonImageLoaderFactory {
         ImageLoader.Builder(context)
             .components {
+                add(ArtworkRequestInterceptor())
                 add(OkHttpNetworkFetcherFactory(imageClient))
                 add(AnimatedImageDecoder.Factory())
             }
