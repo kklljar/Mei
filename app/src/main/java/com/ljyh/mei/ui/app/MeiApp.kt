@@ -172,6 +172,7 @@ fun MeiApp(
                     systemBottomInset = bottomInset,
                 ),
                 expandedBound = maxHeight,
+                allowDismissGesture = false,
             )
             val canScrollAppBar = {
                 route?.startsWith("search_result/") == false &&
