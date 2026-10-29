@@ -247,8 +247,6 @@ private fun HomeBlockItem(
         selectSpecialField(block.dslData)
     } ?: return
 
-    Timber.tag("Block").d(block.positionCode)
-
     when (block.positionCode) {
         // --- 每日推荐 ---
         "PAGE_RECOMMEND_DAILY_RECOMMEND" -> {

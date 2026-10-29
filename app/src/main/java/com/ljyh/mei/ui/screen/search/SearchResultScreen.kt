@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
@@ -194,14 +195,14 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
         SearchType.Song -> {
             val songs = data.result.songs ?: emptyList()
             if (songs.isEmpty()) item { EmptyView() }
-            items(songs) { song ->
+            itemsIndexed(
+                items = songs,
+                key = { _, song -> song.id },
+                contentType = { _, _ -> "song" },
+            ) { index, song ->
                 Track(
                     track = song.toMediaData(),
-                    onClick = {
-                        // 找到当前点击歌曲的 index
-                        val index = songs.indexOfFirst { it.id == song.id }
-                        onSongClick(songs, maxOf(0, index))
-                    },
+                    onClick = { onSongClick(songs, index) },
                     onMoreClick = { onSongMore(song) }
                 )
             }
@@ -209,7 +210,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
         SearchType.Artist -> {
             val artists = data.result.artists ?: emptyList()
             if (artists.isEmpty()) item { EmptyView() }
-            items(artists) { artist ->
+            items(artists, key = { it.id }, contentType = { "artist" }) { artist ->
                 ArtistItem(artist = artist, onClick = {
                     Screen.Artist.navigate(navController) {
                         addPath(artist.id.toString())
@@ -220,7 +221,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
         SearchType.Album -> {
             val albums = data.result.albums ?: emptyList()
             if (albums.isEmpty()) item { EmptyView() }
-            items(albums) { album ->
+            items(albums, key = { it.id }, contentType = { "album" }) { album ->
                 AlbumItem(album = album.toAlbum(), onClick = {
                     Screen.Album.navigate(navController) {
                         addPath(album.id.toString())
@@ -231,7 +232,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
         SearchType.Playlist -> {
             val playlists = data.result.playlists ?: emptyList()
             if (playlists.isEmpty()) item { EmptyView() }
-            items(playlists) { playlist ->
+            items(playlists, key = { it.id }, contentType = { "playlist" }) { playlist ->
                 PlaylistItem(
                     playlist = playlist.toPlaylist(),
                     onClick = {
