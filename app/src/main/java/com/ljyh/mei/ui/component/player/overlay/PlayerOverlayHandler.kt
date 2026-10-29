@@ -135,6 +135,10 @@ class PlayerOverlayHandler(
         _currentOverlay.value = OverlayState.QQMusicSelection(mediaMetadata)
     }
 
+    fun showLyricSourceSelection(mediaMetadata: MediaMetadata) {
+        _currentOverlay.value = OverlayState.LyricSourceSelection(mediaMetadata)
+    }
+
     /**
      * 显示音质选择弹窗
      */

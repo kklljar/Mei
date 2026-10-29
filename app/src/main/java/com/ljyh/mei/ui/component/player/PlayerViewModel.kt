@@ -29,6 +29,8 @@ import com.ljyh.mei.di.repository.ColorRepository
 import com.ljyh.mei.di.repository.LikeRepository
 import com.ljyh.mei.di.repository.QQSongRepository
 import com.ljyh.mei.ui.model.LyricData
+import com.ljyh.mei.ui.model.LyricSelectionState
+import com.ljyh.mei.ui.model.LyricVariant
 import com.ljyh.mei.ui.model.MoreAction
 import com.ljyh.mei.ui.model.SortOrder
 import com.ljyh.mei.utils.dataStore
@@ -63,6 +65,7 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
     val searchResult: StateFlow<Resource<SearchResult>> = lyricManager.qqSearchResult
     val lyric: StateFlow<LyricData> = lyricManager.lyricData
+    val lyricSelection: StateFlow<LyricSelectionState> = lyricManager.selectionState
 
     private val _like = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
     val like: StateFlow<Resource<Boolean>> = _like
@@ -142,6 +145,10 @@ class PlayerViewModel @Inject constructor(
 
     fun searchQQSong(keyword: String) {
         lyricManager.searchQQSong(keyword)
+    }
+
+    fun selectLyricVariant(songId: String, variant: LyricVariant) {
+        viewModelScope.launch { lyricManager.selectLyricVariant(songId, variant) }
     }
 
     fun selectQQSong(song: SearchResult.Request.Data.Body.ItemSong) {

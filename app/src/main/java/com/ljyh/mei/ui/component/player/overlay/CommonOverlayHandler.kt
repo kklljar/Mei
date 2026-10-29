@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -12,6 +13,7 @@ import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.player.PlayerViewModel
 import com.ljyh.mei.ui.component.player.component.sheet.AlbumArtistBottomSheet
 import com.ljyh.mei.ui.component.player.component.sheet.MoreActionsSheet
+import com.ljyh.mei.ui.component.player.component.sheet.LyricSourceSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlayerActionSettingsSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlaylistBottomSheet
 import com.ljyh.mei.ui.component.player.component.sheet.QQMusicSelectSheet
@@ -23,6 +25,7 @@ import com.ljyh.mei.ui.component.playlist.CreatePlaylistSheet
 import com.ljyh.mei.ui.component.sheet.BottomSheetState
 import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.model.MoreAction
+import com.ljyh.mei.ui.model.LyricSelectionState
 import com.ljyh.mei.ui.screen.Screen
 import timber.log.Timber
 
@@ -94,6 +97,23 @@ fun CommonOverlayHandler(
                 viewmodel = playerViewModel,
                 mediaMetadata = overlay.mediaMetadata,
                 onDismiss = { overlayHandler.dismiss() }
+            )
+        }
+
+        is OverlayState.LyricSourceSelection -> {
+            val selection by playerViewModel.lyricSelection.collectAsState()
+            LyricSourceSheet(
+                state = selection.takeIf { it.songId == overlay.mediaMetadata.id.toString() }
+                    ?: LyricSelectionState(songId = overlay.mediaMetadata.id.toString()),
+                onDismiss = { overlayHandler.dismiss() },
+                onSelect = { variant ->
+                    playerViewModel.selectLyricVariant(overlay.mediaMetadata.id.toString(), variant)
+                    overlayHandler.dismiss()
+                },
+                onFindQqLyrics = {
+                    playerViewModel.searchQQSong(overlay.mediaMetadata.title)
+                    overlayHandler.showQQMusicSelection(overlay.mediaMetadata)
+                },
             )
         }
 

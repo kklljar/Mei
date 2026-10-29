@@ -143,10 +143,7 @@ fun ClassicPhoneLayout(
                         onClick = {
                             mediaMetadata?.let {
                                 if (overlayHandler.currentOverlayValue is OverlayState.None) {
-                                    stateContainer.playerViewModel.searchQQSong(it.title)
-                                    overlayHandler.showQQMusicSelection(
-                                        mediaMetadata = it
-                                    )
+                                    overlayHandler.showLyricSourceSelection(it)
                                 }
                             }
                         },
