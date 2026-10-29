@@ -133,6 +133,20 @@ fun SongInfoSheet(
                 value = metadata.title,
                 onCopy = { setClipboard(context, metadata.title, "歌曲名称") }
             )
+            InfoItem(
+                label = "网易云链接",
+                value = "https://music.163.com/song?id=${metadata.id}",
+                monospace = true,
+                onCopy = {
+                    setClipboard(context, "https://music.163.com/song?id=${metadata.id}", "网易云链接")
+                }
+            )
+            InfoItem(
+                label = "封面链接",
+                value = metadata.coverUrl,
+                monospace = true,
+                onCopy = { setClipboard(context, metadata.coverUrl, "封面链接") }
+            )
             metadata.tns?.let { tns ->
                 InfoItem(
                     label = "译名",
@@ -152,6 +166,14 @@ fun SongInfoSheet(
                     value = qqSongId,
                     monospace = true,
                     onCopy = { setClipboard(context, qqSongId, "QQ 歌曲 ID") }
+                )
+                InfoItem(
+                    label = "QQ 音乐链接",
+                    value = "https://y.qq.com/n/ryqq/songDetail/$qqSongId",
+                    monospace = true,
+                    onCopy = {
+                        setClipboard(context, "https://y.qq.com/n/ryqq/songDetail/$qqSongId", "QQ 音乐链接")
+                    }
                 )
             }
 
