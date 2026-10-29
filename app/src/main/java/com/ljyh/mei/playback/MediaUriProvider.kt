@@ -128,7 +128,9 @@ class MediaUriProvider @Inject constructor(
         val resolved = withTimeoutOrNull(45_000) {
             unblockResolver.resolve(target) { candidate ->
                 val identity = "${candidate.track.id.source}:${candidate.track.id.value}"
-                identity !in excluded && lxFallbackResolver.isPlayable(candidate.url)
+                // Each provider already probes its signed URL before returning it. Probing a
+                // second time can invalidate or reject short-lived Migu URLs on some devices.
+                identity !in excluded
             }
         } ?: return null
         val identity = "${resolved.track.id.source}:${resolved.track.id.value}"
