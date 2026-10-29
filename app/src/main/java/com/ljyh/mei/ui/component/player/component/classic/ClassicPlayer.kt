@@ -129,7 +129,8 @@ fun ClassicPlayer(
         FluidBackground(
             imageUrl = coverUrl,
             audioVisualizerManager = audioVisualizerManager,
-            isPlaying = isPlaying
+            isPlaying = isPlaying && state.progress > 0.02f,
+            renderAlpha = state.progress,
         )
 
 
