@@ -41,7 +41,9 @@ fun Track(
     isTablet: Boolean = false,
     isPlaying: Boolean = false,
     onClick: () -> Unit,
-    onMoreClick: () -> Unit
+    onMoreClick: () -> Unit,
+    moreButtonModifier: Modifier = Modifier,
+    moreContentDescription: String = "更多",
 ) {
     Row(
         modifier = Modifier
@@ -127,11 +129,11 @@ fun Track(
         // --- 5. 更多按钮 ---
         IconButton(
             onClick = onMoreClick,
-            modifier = Modifier.padding(start = 8.dp).size(32.dp)
+            modifier = Modifier.padding(start = 8.dp).size(48.dp).then(moreButtonModifier)
         ) {
             Icon(
                 imageVector = Icons.Filled.MoreVert,
-                contentDescription = "更多",
+                contentDescription = moreContentDescription,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )

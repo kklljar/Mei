@@ -38,6 +38,7 @@ import com.ljyh.mei.data.model.api.GetUserPhotoAlbum
 import com.ljyh.mei.data.model.api.GetUserPlaylist
 import com.ljyh.mei.data.model.api.Intelligence
 import com.ljyh.mei.data.model.api.ManipulateTrack
+import com.ljyh.mei.data.model.api.UpdatePlaylistTrackOrder
 import com.ljyh.mei.data.model.api.ManipulateTrackResult
 import com.ljyh.mei.data.model.api.SearchResult
 import com.ljyh.mei.data.model.api.SearchSuggest
@@ -138,6 +139,9 @@ interface ApiService {
 
     @POST("/api/playlist/manipulate/tracks")
     suspend fun manipulateTracks(@Body body: ManipulateTrack): ManipulateTrackResult
+
+    @POST("/api/playlist/manipulate/tracks")
+    suspend fun updatePlaylistTrackOrder(@Body body: UpdatePlaylistTrackOrder): BaseResponse
 
     @POST("/api/playlist/create")
     suspend fun createPlaylist(@Body body: CreatePlaylist): CreatePlaylistResult

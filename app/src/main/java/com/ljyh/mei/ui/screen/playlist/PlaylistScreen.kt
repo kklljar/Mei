@@ -80,6 +80,10 @@ fun PlaylistScreen(
     var showDownloadDialog by remember { mutableStateOf(false) }
     var pendingDownloadTracks by remember { mutableStateOf<List<MediaMetadata>>(emptyList()) }
     var isPreparingDownload by remember { mutableStateOf(false) }
+    var isPreparingOrder by remember(id) { mutableStateOf(false) }
+    var isSavingOrder by remember(id) { mutableStateOf(false) }
+    var orderItems by remember(id) { mutableStateOf<List<PlaylistOrderItem>?>(null) }
+    var confirmedOrder by remember(id) { mutableStateOf<List<PlaylistOrderItem>?>(null) }
 
     val (downloadPath) = rememberPreference(DownloadPathKey, DownloadManager.getDefaultDownloadPath())
     val (downloadQuality) = rememberEnumPreference(DownloadQualityKey, DownloadQuality.EXHIGH)
@@ -165,6 +169,27 @@ fun PlaylistScreen(
         }
     }
 
+    LaunchedEffect(id, playlistDetail, userId, removedTrackIds) {
+        if (uiData.isCreator && !isSavingOrder) {
+            isPreparingOrder = true
+            when (val result = viewModel.loadTracksForReorder(id)) {
+                is Resource.Success -> {
+                    confirmedOrder = result.data
+                    orderItems = result.data
+                }
+                is Resource.Error -> {
+                    orderItems = null
+                    Toast.makeText(context, "排序准备失败：${result.message}", Toast.LENGTH_SHORT).show()
+                }
+                Resource.Loading -> Unit
+            }
+            isPreparingOrder = false
+        } else if (!uiData.isCreator) {
+            orderItems = null
+            confirmedOrder = null
+        }
+    }
+
     // 6. 提取构建播放队列的逻辑 (避免重复代码)
     fun buildListQueue(startTrackId: Long? = null): ListQueue? {
         val detail = playlistDetail
@@ -174,12 +199,16 @@ fun PlaylistScreen(
             // 但对于点击事件，直接处理通常也能接受
             val mediaItemsMap = playlist.tracks.associate {
                 it.id.toString() to it.toMediaMetadata().toMediaItem()
+            }.toMutableMap().apply {
+                orderItems.orEmpty().forEach { item ->
+                    put(item.id.toString(), item.track.toMediaItem())
+                }
             }
             // 保持原始顺序
-            val allPairs = playlist.trackIds
-                .filterNot { it.id in removedTrackIds }
-                .mapNotNull { trackId ->
-                val tid = trackId.id.toString()
+            val orderedIds = orderItems?.map(PlaylistOrderItem::id)
+                ?: playlist.trackIds.map { it.id }.filterNot { it in removedTrackIds }
+            val allPairs = orderedIds.mapNotNull { trackId ->
+                val tid = trackId.toString()
                 mediaItemsMap[tid]?.let { Pair(tid, it) }
             }
 
@@ -368,6 +397,40 @@ fun PlaylistScreen(
             onPlaylistSearchActiveChange = { active ->
                 isPlaylistSearchActive = active
                 if (!active) playlistSearchQuery = ""
+            },
+            reorderItems = orderItems.takeIf { uiData.isCreator && !isPreparingOrder },
+            reorderSaving = isSavingOrder,
+            onMoveTrack = { from, to ->
+                val current = orderItems
+                if (!isSavingOrder && current != null && from in current.indices && to in current.indices) {
+                    orderItems = current.toMutableList().apply { add(to, removeAt(from)) }
+                }
+            },
+            onReorderFinished = {
+                val snapshot = orderItems
+                if (!isSavingOrder && snapshot != null &&
+                    snapshot.map(PlaylistOrderItem::id) != confirmedOrder?.map(PlaylistOrderItem::id)) {
+                    isSavingOrder = true
+                    scope.launch {
+                        when (val result = viewModel.saveTrackOrder(id, snapshot)) {
+                            is Resource.Success -> {
+                                if (result.data.code == 200) {
+                                    confirmedOrder = snapshot
+                                    Toast.makeText(context, "歌曲顺序已保存", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    orderItems = confirmedOrder
+                                    Toast.makeText(context, "排序保存失败（${result.data.code}），已恢复", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            is Resource.Error -> {
+                                orderItems = confirmedOrder
+                                Toast.makeText(context, "排序保存失败：${result.message}", Toast.LENGTH_SHORT).show()
+                            }
+                            Resource.Loading -> Unit
+                        }
+                        isSavingOrder = false
+                    }
+                }
             },
             onBack = { navController.popBackStack() }
         )

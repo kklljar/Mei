@@ -103,6 +103,56 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    suspend fun loadTracksForReorder(playlistId: Long): Resource<List<PlaylistOrderItem>> {
+        val detail = (_playlistDetail.value as? Resource.Success)?.data?.playlist
+            ?: return Resource.Error("歌单尚未加载完成")
+        val currentUserId = userIdState.value
+        if (detail.Id != playlistId || currentUserId.isBlank() ||
+            detail.creator.userId.toString() != currentUserId) {
+            return Resource.Error("只能调整自己创建的歌单")
+        }
+
+        return try {
+            val visibleIds = detail.trackIds.map { it.id }
+                .filterNot { it in _removedTrackIds.value }
+            val tracksById = detail.tracks.associateBy { it.id }.toMutableMap()
+            visibleIds.filterNot(tracksById::containsKey).chunked(200).forEach { ids ->
+                getSongDetails(ids.map(Long::toString)).songs.forEach { track ->
+                    tracksById[track.id] = track
+                }
+            }
+            val items = visibleIds.mapNotNull { id ->
+                tracksById[id]?.toMediaMetadata()?.let { PlaylistOrderItem(id, it) }
+            }
+            if (items.size != visibleIds.size) {
+                Resource.Error("部分歌曲信息加载失败")
+            } else {
+                Resource.Success(items)
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "加载完整歌单失败")
+        }
+    }
+
+    suspend fun saveTrackOrder(
+        playlistId: Long,
+        items: List<PlaylistOrderItem>,
+    ): Resource<BaseResponse> {
+        val detail = (_playlistDetail.value as? Resource.Success)?.data?.playlist
+            ?: return Resource.Error("歌单尚未加载完成")
+        val currentUserId = userIdState.value
+        val ids = items.map(PlaylistOrderItem::id)
+        val expectedIds = detail.trackIds.map { it.id }.filterNot { it in _removedTrackIds.value }
+        if (detail.Id != playlistId || currentUserId.isBlank() ||
+            detail.creator.userId.toString() != currentUserId) {
+            return Resource.Error("只能调整自己创建的歌单")
+        }
+        if (ids.size != expectedIds.size || ids.toSet() != expectedIds.toSet()) {
+            return Resource.Error("歌单歌曲已变化，请重新打开歌单")
+        }
+        return repository.updatePlaylistTrackOrder(playlistId.toString(), ids)
+    }
+
     // 分页加载，不是根据歌单id加载，而是根据歌曲id加载
     fun getPlaylistTracks(
         playlistDetailResource: Resource<PlaylistDetail>,

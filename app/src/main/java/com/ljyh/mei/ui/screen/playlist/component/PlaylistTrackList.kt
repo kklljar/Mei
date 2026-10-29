@@ -21,8 +21,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
@@ -32,7 +35,10 @@ import androidx.paging.compose.itemKey
 import com.ljyh.mei.constants.PlaylistTrackTableHeaderKey
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.ui.component.item.Track
+import com.ljyh.mei.ui.screen.playlist.PlaylistOrderItem
 import com.ljyh.mei.utils.rememberPreference
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @Composable
 fun PlaylistTrackList(
@@ -43,6 +49,10 @@ fun PlaylistTrackList(
     headerContent: (@Composable () -> Unit)? = null, // 新增：可选的头部内容
     onTrackClick: (MediaMetadata, Int) -> Unit,
     onMoreClick: (MediaMetadata) -> Unit,
+    reorderItems: List<PlaylistOrderItem>? = null,
+    reorderSaving: Boolean = false,
+    onMoveTrack: (Int, Int) -> Unit = { _, _ -> },
+    onReorderFinished: () -> Unit = {},
     onTrackDownload: ((MediaMetadata) -> Unit)? = null,
     lazyListState: LazyListState = rememberLazyListState(),
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -50,6 +60,20 @@ fun PlaylistTrackList(
 ) {
 
     val playlistTrackTableHeader by rememberPreference(PlaylistTrackTableHeaderKey,  false)
+    val currentOnMove by rememberUpdatedState(onMoveTrack)
+    val currentItems by rememberUpdatedState(reorderItems)
+    val currentSaving by rememberUpdatedState(reorderSaving)
+    val haptics = LocalHapticFeedback.current
+    val headerOffset = if (headerContent == null) 0 else 1
+    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val fromIndex = from.index - headerOffset
+        val toIndex = to.index - headerOffset
+        val items = currentItems
+        if (!currentSaving && items != null && fromIndex in items.indices && toIndex in items.indices) {
+            currentOnMove(fromIndex, toIndex)
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
 
@@ -69,7 +93,30 @@ fun PlaylistTrackList(
             }
             // 如果是平板，可以在这里加一个 StickyHeader 作为“表头”
 
-            if (pagingItems != null) {
+            if (reorderItems != null) {
+                itemsIndexed(reorderItems, key = { _, item -> item.id }) { index, item ->
+                    ReorderableItem(reorderState, key = item.id) { _ ->
+                        Track(
+                            track = item.track,
+                            index = index,
+                            isTablet = isTablet,
+                            onClick = { onTrackClick(item.track, index) },
+                            onMoreClick = { onMoreClick(item.track) },
+                            moreButtonModifier = if (reorderSaving) Modifier else
+                                Modifier.longPressDraggableHandle(
+                                    onDragStarted = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                    },
+                                    onDragStopped = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                        onReorderFinished()
+                                    },
+                                ),
+                            moreContentDescription = "更多，长按拖动调整顺序",
+                        )
+                    }
+                }
+            } else if (pagingItems != null) {
                 items(
                     count = pagingItems.itemCount,
                     key = pagingItems.itemKey { it.id },
