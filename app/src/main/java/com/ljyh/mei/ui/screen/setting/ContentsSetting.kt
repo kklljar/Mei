@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.ljyh.mei.constants.CookieKey
+import com.ljyh.mei.constants.QqCookieKey
+import com.ljyh.mei.constants.AlternativeSourceMode
+import com.ljyh.mei.constants.AlternativeSourceModeKey
 import com.ljyh.mei.constants.QqTimeout
 import com.ljyh.mei.constants.QqTimeoutKey
 import com.ljyh.mei.constants.LxFallbackEnabledKey
@@ -142,6 +145,19 @@ fun ContentsSetting(
                 onValueSelected = { onQqTimeoutChange(it.name) }
             )
 
+            val (qqCookie, onQqCookieChange) = rememberPreference(
+                QqCookieKey,
+                defaultValue = ""
+            )
+            EditTextPreference(
+                title = { Text("QQ 音乐 Cookie") },
+                icon = { Icon(Icons.Rounded.Cookie, contentDescription = null) },
+                value = qqCookie,
+                onValueChange = { onQqCookieChange(it.trim()) },
+                singleLine = false,
+                isInputValid = { true },
+            )
+
             PreferenceGroupTitle(title = "备用音源")
             val (lxEnabled, onLxEnabledChange) = rememberPreference(
                 LxFallbackEnabledKey,
@@ -151,21 +167,35 @@ fun ContentsSetting(
                 LxSourceUrlsKey,
                 defaultValue = "",
             )
-            SwitchPreference(
-                title = { Text("LX 多音源失败回退") },
-                description = "网易云无法获取播放链接时，依次尝试下方 LX 脚本",
-                icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
-                checked = lxEnabled,
-                onCheckedChange = onLxEnabledChange,
+            val defaultMode = if (lxEnabled) AlternativeSourceMode.Lx.name else AlternativeSourceMode.Off.name
+            val (alternativeMode, onAlternativeModeChange) = rememberPreference(
+                AlternativeSourceModeKey,
+                defaultValue = defaultMode,
             )
-            EditTextPreference(
-                title = { Text("LX 音源脚本直链") },
+            val selectedMode = runCatching { AlternativeSourceMode.valueOf(alternativeMode) }
+                .getOrDefault(AlternativeSourceMode.Off)
+            ListPreference(
+                title = { Text("备用音源模式") },
+                description = "LX 与多平台解灰互斥，避免同一次播放重复请求",
                 icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
-                value = lxSourceUrls,
-                onValueChange = onLxSourceUrlsChange,
-                singleLine = false,
-                isInputValid = { true },
+                selectedValue = selectedMode,
+                values = AlternativeSourceMode.entries.toList(),
+                valueText = { it.label },
+                onValueSelected = {
+                    onAlternativeModeChange(it.name)
+                    onLxEnabledChange(it == AlternativeSourceMode.Lx)
+                },
             )
+            if (selectedMode == AlternativeSourceMode.Lx) {
+                EditTextPreference(
+                    title = { Text("LX 音源脚本直链") },
+                    icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
+                    value = lxSourceUrls,
+                    onValueChange = onLxSourceUrlsChange,
+                    singleLine = false,
+                    isInputValid = { true },
+                )
+            }
         }
     }
 }

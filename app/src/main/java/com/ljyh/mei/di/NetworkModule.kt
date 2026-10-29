@@ -1,14 +1,22 @@
 package com.ljyh.mei.di
 
+import android.content.Context
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
 import com.ljyh.mei.constants.AndroidUserAgent
+import com.ljyh.mei.constants.QqCookieKey
 import com.ljyh.mei.data.network.QQMusicUApiService
 import com.ljyh.mei.data.network.api.ApiService
 import com.ljyh.mei.data.network.api.EApiService
 import com.ljyh.mei.data.network.api.WeApiService
 import com.ljyh.mei.utils.log.NetworkLogInterceptor
+import com.ljyh.mei.utils.dataStore
+import com.ljyh.unblockneteasemusic.kuwo.KuwoMusicProvider
+import com.ljyh.unblockneteasemusic.migu.MiguMusicProvider
+import com.ljyh.unblockneteasemusic.qq.QqMusicProvider
+import com.ljyh.unblockneteasemusic.unblock.UnblockResolver
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,6 +29,7 @@ import timber.log.Timber
 import java.lang.reflect.Type
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.first
 import javax.inject.Named
 import javax.inject.Singleton
 import javax.net.ssl.SSLContext
@@ -163,6 +172,32 @@ object RetrofitModule {
     fun provideQQMusicApiServiceU(@Named("qqMusicRetrofitU") retrofit: Retrofit): QQMusicUApiService {
         return retrofit.create(QQMusicUApiService::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideUnblockQqProvider(@ApplicationContext context: Context): QqMusicProvider =
+        QqMusicProvider {
+            context.dataStore.data.first()[QqCookieKey]?.trim()?.takeIf(String::isNotEmpty)
+        }
+
+    @Provides
+    @Singleton
+    fun provideUnblockKuwoProvider(): KuwoMusicProvider = KuwoMusicProvider()
+
+    @Provides
+    @Singleton
+    fun provideUnblockMiguProvider(): MiguMusicProvider = MiguMusicProvider()
+
+    @Provides
+    @Singleton
+    fun provideUnblockResolver(
+        qq: QqMusicProvider,
+        kuwo: KuwoMusicProvider,
+        migu: MiguMusicProvider,
+    ): UnblockResolver = UnblockResolver(
+        catalogs = listOf(qq, kuwo, migu),
+        audioProviders = listOf(qq, kuwo, migu),
+    )
 
     private fun determineCryptoMethod(url: String): String {
         // 根据 URL 或其他条件确定加密方式

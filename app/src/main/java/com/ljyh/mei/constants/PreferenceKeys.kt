@@ -27,6 +27,7 @@ val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 
 
 val CookieKey = stringPreferencesKey("cookie")
+val QqCookieKey = stringPreferencesKey("qq_music_cookie")
 val MusicQualityKey = stringPreferencesKey("musicQuality")
 
 
@@ -73,6 +74,13 @@ val QqTimeoutKey = stringPreferencesKey("qq_timeout")
 val SearchHistoryKey = stringPreferencesKey("searchHistory")
 val LxFallbackEnabledKey = booleanPreferencesKey("lxFallbackEnabled")
 val LxSourceUrlsKey = stringPreferencesKey("lxSourceUrls")
+val AlternativeSourceModeKey = stringPreferencesKey("alternativeSourceMode")
+
+enum class AlternativeSourceMode(val label: String) {
+    Off("关闭"),
+    Lx("LX 自定义音源"),
+    Unblock("多平台解灰")
+}
 
 enum class QqTimeout(val seconds: Int, val label: String) {
     Sec3(3, "3秒"),
