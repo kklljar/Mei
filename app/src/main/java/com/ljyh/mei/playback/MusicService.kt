@@ -258,6 +258,20 @@ class MusicService : MediaLibraryService(),
 
 
         audioPlayer = AudioPlayer(player)
+
+        scope.launch {
+            val shown = mutableMapOf<String, PlaybackSourceInfo>()
+            mediaUriProvider.sourceInfo.collect { sources ->
+                sources.forEach { (mediaId, info) ->
+                    if (shown[mediaId] == info) return@forEach
+                    shown[mediaId] = info
+                    if (info.name == "网易云" || info.name == "本地") return@forEach
+                    val detail = listOfNotNull(info.name, info.quality).joinToString(" · ")
+                    Toast.makeText(context, "音源：$detail", Toast.LENGTH_SHORT).show()
+                }
+                shown.keys.retainAll(sources.keys)
+            }
+        }
         val singletonImageLoader = ImageLoader(this)
         val sessionPlayer = object : ForwardingSimpleBasePlayer(player) {
             override fun handleSeek(

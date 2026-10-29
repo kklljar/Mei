@@ -21,6 +21,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.io.File
@@ -30,6 +33,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 class SourceNotFoundException(message: String) : IOException(message)
+data class PlaybackSourceInfo(val name: String, val quality: String?)
 
 @Singleton
 class MediaUriProvider @Inject constructor(
@@ -39,19 +43,39 @@ class MediaUriProvider @Inject constructor(
     private val lxFallbackResolver: LxFallbackResolver,
     private val unblockResolver: UnblockResolver,
 ) {
-    private data class CachedUrl(val url: String, val identity: String)
-    private data class FallbackResult(val uri: Uri, val identity: String)
+    private data class CachedUrl(
+        val url: String,
+        val identity: String,
+        val source: PlaybackSourceInfo,
+    )
+    private data class FallbackResult(
+        val uri: Uri,
+        val identity: String,
+        val source: PlaybackSourceInfo,
+    )
 
     private val urlCache = ConcurrentHashMap<String, CachedUrl>()
     private val lastResolved = ConcurrentHashMap<String, CachedUrl>()
     private val failedIdentities = ConcurrentHashMap<String, MutableSet<String>>()
+    private val _sourceInfo = MutableStateFlow<Map<String, PlaybackSourceInfo>>(emptyMap())
+    val sourceInfo = _sourceInfo.asStateFlow()
+
+    private fun selected(mediaId: String, cached: CachedUrl): Uri {
+        lastResolved[mediaId] = cached
+        _sourceInfo.update { it + (mediaId to cached.source) }
+        return cached.url.toUri()
+    }
 
     suspend fun resolveMediaUri(mediaId: String, quality: String): Uri {
         val localPath = songRepository.getSong(mediaId).firstOrNull()?.path
             ?: songRepository.getSong("local_$mediaId").firstOrNull()?.path
         if (localPath != null) {
-            if (localPath.startsWith("content://")) return Uri.parse(localPath)
-            File(localPath).takeIf(File::exists)?.let { return Uri.fromFile(it) }
+            val localUri = if (localPath.startsWith("content://")) Uri.parse(localPath)
+            else File(localPath).takeIf(File::exists)?.let(Uri::fromFile)
+            if (localUri != null) {
+                _sourceInfo.update { it + (mediaId to PlaybackSourceInfo("本地", null)) }
+                return localUri
+            }
         }
 
         val preferences = context.dataStore.data.first()
@@ -60,8 +84,7 @@ class MediaUriProvider @Inject constructor(
             ?: if (preferences[LxFallbackEnabledKey] == true) AlternativeSourceMode.Lx else AlternativeSourceMode.Off
         val cacheKey = "$mediaId|$quality|${mode.name}"
         urlCache[cacheKey]?.let {
-            lastResolved[mediaId] = it
-            return it.url.toUri()
+            return selected(mediaId, it)
         }
         val excluded = failedIdentities[mediaId].orEmpty()
 
@@ -70,18 +93,16 @@ class MediaUriProvider @Inject constructor(
             val url = response.data.firstOrNull()?.url
             if ("netease" !in excluded && !url.isNullOrBlank() &&
                 (mode != AlternativeSourceMode.Lx || lxFallbackResolver.isPlayable(url))) {
-                val cached = CachedUrl(url, "netease")
+                val cached = CachedUrl(url, "netease", PlaybackSourceInfo("网易云", quality))
                 urlCache[cacheKey] = cached
-                lastResolved[mediaId] = cached
-                return url.toUri()
+                return selected(mediaId, cached)
             }
 
             val fallback = fallback(mode, mediaId, quality, excluded)
             if (fallback != null) {
-                val cached = CachedUrl(fallback.uri.toString(), fallback.identity)
+                val cached = CachedUrl(fallback.uri.toString(), fallback.identity, fallback.source)
                 urlCache[cacheKey] = cached
-                lastResolved[mediaId] = cached
-                return fallback.uri
+                return selected(mediaId, cached)
             }
             throw SourceNotFoundException("未找到可播放音源：$mediaId")
         } catch (cancelled: CancellationException) {
@@ -91,10 +112,9 @@ class MediaUriProvider @Inject constructor(
         } catch (error: Exception) {
             val fallback = fallback(mode, mediaId, quality, excluded)
             if (fallback != null) {
-                val cached = CachedUrl(fallback.uri.toString(), fallback.identity)
+                val cached = CachedUrl(fallback.uri.toString(), fallback.identity, fallback.source)
                 urlCache[cacheKey] = cached
-                lastResolved[mediaId] = cached
-                return fallback.uri
+                return selected(mediaId, cached)
             }
             throw IOException("解析歌曲链接失败：$mediaId", error)
         }
@@ -109,7 +129,7 @@ class MediaUriProvider @Inject constructor(
         when (mode) {
             AlternativeSourceMode.Off -> null
             AlternativeSourceMode.Lx -> lxFallbackResolver.resolve(mediaId, quality)?.let {
-                FallbackResult(it, "lx")
+                FallbackResult(it, "lx", PlaybackSourceInfo("LX 音源", quality))
             }
             AlternativeSourceMode.Unblock -> resolveUnblock(mediaId, excluded)
         }
@@ -135,7 +155,18 @@ class MediaUriProvider @Inject constructor(
         } ?: return null
         val identity = "${resolved.track.id.source}:${resolved.track.id.value}"
         Timber.tag("Unblock").i("resolved id=%s source=%s", mediaId, resolved.track.id.source)
-        return FallbackResult(resolved.url.toUri(), identity)
+        return FallbackResult(
+            resolved.url.toUri(),
+            identity,
+            PlaybackSourceInfo("解灰 · ${sourceDisplayName(resolved.track.id.source)}", null),
+        )
+    }
+
+    private fun sourceDisplayName(source: String): String = when (source.lowercase()) {
+        "qq" -> "QQ 音乐"
+        "kuwo" -> "酷我音乐"
+        "migu" -> "咪咕音乐"
+        else -> source
     }
 
     fun recoverAfterError(mediaId: String): Boolean {
