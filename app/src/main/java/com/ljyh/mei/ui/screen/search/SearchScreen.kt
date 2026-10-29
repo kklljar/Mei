@@ -1,6 +1,6 @@
 package com.ljyh.mei.ui.screen.search
 
-import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -24,26 +24,38 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.ljyh.mei.constants.SuggestionItemHeight
+import com.ljyh.mei.constants.SearchHistoryKey
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.ui.component.SearchBarIconOffsetX
+import com.ljyh.mei.utils.dataStore
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 
@@ -57,8 +69,16 @@ fun SearchScreen(
 ) {
     val searchSuggest by viewModel.searchSuggest.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val searchHistory by remember(context) {
+        context.dataStore.data.map { preferences ->
+            decodeSearchHistory(preferences[SearchHistoryKey])
+        }
+    }.collectAsState(initial = emptyList())
 
     val lazyListState = rememberLazyListState()
+    var showAllHistory by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         snapshotFlow { lazyListState.firstVisibleItemScrollOffset }
@@ -79,7 +99,65 @@ fun SearchScreen(
             .asPaddingValues()
     ) {
 
-        when (val result=searchSuggest) {
+        if (query.isBlank()) {
+            if (searchHistory.isNotEmpty()) {
+                item(key = "search_history_header") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(SuggestionItemHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "搜索记录",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(start = 16.dp),
+                        )
+                        TextButton(
+                            onClick = { coroutineScope.launch { context.clearSearchHistory() } },
+                            modifier = Modifier.padding(end = 4.dp),
+                        ) {
+                            Text("清空")
+                        }
+                    }
+                }
+                items(
+                    items = if (showAllHistory) searchHistory else searchHistory.take(5),
+                    key = { "history:$it" },
+                ) { keyword ->
+                    SuggestionItem(
+                        query = keyword,
+                        type = SearchType.History,
+                        onClick = {
+                            onSearch(keyword, SearchType.Song.type)
+                            onDismiss()
+                        },
+                        onDelete = {
+                            coroutineScope.launch { context.removeSearchHistory(keyword) }
+                        },
+                        onFillTextField = {
+                            onQueryChange(
+                                TextFieldValue(
+                                    text = keyword,
+                                    selection = TextRange(keyword.length),
+                                ),
+                            )
+                        },
+                    )
+                }
+                if (searchHistory.size > 5) {
+                    item(key = "search_history_expand") {
+                        TextButton(
+                            onClick = { showAllHistory = !showAllHistory },
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        ) {
+                            Text(if (showAllHistory) "收起" else "查看全部记录")
+                        }
+                    }
+                }
+            }
+        } else when (val result=searchSuggest) {
             is Resource.Loading -> {}
             is Resource.Success -> {
                 Timber.tag("SearchSuggest").d("result: ${result.data}")
