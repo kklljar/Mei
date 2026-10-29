@@ -54,6 +54,7 @@ fun PlayerProgressSlider(
     duration: Long,
     isPlaying: Boolean, // 新增：需要根据播放状态控制波浪滚动
     onPositionChange: (Long) -> Unit,
+    onQualityClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val musicQuality by rememberEnumPreference(MusicQualityKey, MusicQuality.EXHIGH)
@@ -226,12 +227,11 @@ fun PlayerProgressSlider(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            Text(
-                text = musicQuality.explanation,
-                style = timeTextStyle,
+            PlayerQualityLabel(
+                quality = musicQuality,
+                textStyle = timeTextStyle,
                 color = Color.White.copy(alpha = 0.8f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                onClick = onQualityClick,
             )
 
 

@@ -86,6 +86,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
@@ -272,6 +275,15 @@ class MusicService : MediaLibraryService(),
                 shown.keys.retainAll(sources.keys)
             }
         }
+        scope.launch {
+            var quality = dataStore.data.first()[MusicQualityKey]
+            dataStore.data.map { it[MusicQualityKey] }.distinctUntilChanged().collect { nextQuality ->
+                if (nextQuality != quality) {
+                    quality = nextQuality
+                    reprepareCurrentTrack()
+                }
+            }
+        }
         val singletonImageLoader = ImageLoader(this)
         val sessionPlayer = object : ForwardingSimpleBasePlayer(player) {
             override fun handleSeek(
@@ -430,6 +442,17 @@ class MusicService : MediaLibraryService(),
 
     fun setShuffleModeEnabled(isShuffle: Boolean) {
         queueManager.setShuffleModeEnabled(isShuffle)
+    }
+
+    private fun reprepareCurrentTrack() {
+        if (player.mediaItemCount == 0) return
+        val index = player.currentMediaItemIndex
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val playWhenReady = player.playWhenReady
+        player.stop()
+        player.seekTo(index, position)
+        player.prepare()
+        player.playWhenReady = playWhenReady
     }
 
     override fun onDestroy() {

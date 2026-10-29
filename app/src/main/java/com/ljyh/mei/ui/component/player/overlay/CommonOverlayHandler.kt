@@ -13,6 +13,7 @@ import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.player.PlayerViewModel
 import com.ljyh.mei.ui.component.player.component.sheet.AlbumArtistBottomSheet
 import com.ljyh.mei.ui.component.player.component.sheet.MoreActionsSheet
+import com.ljyh.mei.ui.component.player.component.sheet.MusicQualitySheet
 import com.ljyh.mei.ui.component.player.component.sheet.LyricSourceSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlayerActionSettingsSheet
 import com.ljyh.mei.ui.component.player.component.sheet.PlaylistBottomSheet
@@ -178,8 +179,7 @@ fun CommonOverlayHandler(
         }
 
         is OverlayState.MusicQualitySelection -> {
-            // TODO: 实现音质选择弹窗
-            Toast.makeText(context, "音质选择: ${overlay.current}", Toast.LENGTH_SHORT).show()
+            MusicQualitySheet(onDismiss = { overlayHandler.dismiss() })
         }
 
         is OverlayState.TrackActionMenu -> {

@@ -470,6 +470,7 @@ fun AppleMusicPlayer(
                                     }
                                 },
                                 onMoreClick = { overlayHandler.showMoreAction() },
+                                onQualityClick = { overlayHandler.showMusicQualitySelection(0) },
                                 isCompact = isCompactHeight || isLandscape
                             )
                         }

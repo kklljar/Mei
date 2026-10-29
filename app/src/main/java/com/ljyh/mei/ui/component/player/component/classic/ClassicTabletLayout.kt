@@ -134,6 +134,7 @@ fun ClassicTabletLayout(
                     onPositionChange = { newPosition ->
                         stateContainer.playerConnection.player.seekTo(newPosition)
                     },
+                    onQualityClick = { overlayHandler.showMusicQualitySelection(0) },
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .padding(horizontal = PlayerHorizontalPadding + 8.dp)
@@ -146,6 +147,7 @@ fun ClassicTabletLayout(
                     onPositionChange = { newPosition ->
                         stateContainer.playerConnection.player.seekTo(newPosition)
                     },
+                    onQualityClick = { overlayHandler.showMusicQualitySelection(0) },
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .padding(horizontal = PlayerHorizontalPadding + 8.dp)

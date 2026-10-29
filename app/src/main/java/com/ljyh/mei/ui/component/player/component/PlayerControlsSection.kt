@@ -35,6 +35,7 @@ fun PlayerControlsSection(
     onSleepTimerClick: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
     onMoreClick: () -> Unit,
+    onQualityClick: () -> Unit,
     isCompact: Boolean = false // 新增参数
 ) {
     // 紧凑模式下间距减半
@@ -57,6 +58,7 @@ fun PlayerControlsSection(
                 onPositionChange = { newPosition ->
                     playerConnection.player.seekTo(newPosition)
                 },
+                onQualityClick = onQualityClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PlayerHorizontalPadding + 8.dp)
@@ -69,6 +71,7 @@ fun PlayerControlsSection(
                 onPositionChange = { newPosition ->
                     playerConnection.player.seekTo(newPosition)
                 },
+                onQualityClick = onQualityClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PlayerHorizontalPadding + 8.dp)

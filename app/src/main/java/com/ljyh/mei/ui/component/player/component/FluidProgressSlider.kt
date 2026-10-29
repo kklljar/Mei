@@ -47,6 +47,7 @@ fun FluidProgressSlider(
     position: Long,
     duration: Long,
     onPositionChange: (Long) -> Unit,
+    onQualityClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val musicQuality by rememberEnumPreference(MusicQualityKey, MusicQuality.EXHIGH)
@@ -204,10 +205,11 @@ fun FluidProgressSlider(
             )
 
             // 中间：音质 (复用你原本的逻辑)
-            Text(
-                text = musicQuality.explanation,
-                style = commonTextStyle.copy(fontSize = 10.sp),
+            PlayerQualityLabel(
+                quality = musicQuality,
                 color = Color.White.copy(alpha = 0.6f),
+                textStyle = commonTextStyle.copy(fontSize = 10.sp),
+                onClick = onQualityClick,
             )
 
             // 右侧：剩余时间 (Apple Music 风格通常显示剩余时间，即 "-03:45")

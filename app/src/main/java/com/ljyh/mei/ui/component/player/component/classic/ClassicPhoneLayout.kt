@@ -172,6 +172,7 @@ fun ClassicPhoneLayout(
                 onPositionChange = { newPosition ->
                     stateContainer.playerConnection.player.seekTo(newPosition)
                 },
+                onQualityClick = { overlayHandler.showMusicQualitySelection(0) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PlayerHorizontalPadding + 8.dp)
@@ -184,6 +185,7 @@ fun ClassicPhoneLayout(
                 onPositionChange = { newPosition ->
                     stateContainer.playerConnection.player.seekTo(newPosition)
                 },
+                onQualityClick = { overlayHandler.showMusicQualitySelection(0) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = PlayerHorizontalPadding + 8.dp)
