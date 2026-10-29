@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.ljyh.mei.constants.NavigationBarAnimationSpec
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 data class BottomSheetMorphSpec(
@@ -428,15 +429,26 @@ fun rememberBottomSheetState(
     val animatable = remember {
         Animatable(0.dp, Dp.VectorConverter)
     }
+    val dragSignal = remember { Channel<Unit>(Channel.CONFLATED) }
+    val pendingDragDelta = remember { floatArrayOf(0f) }
+
+    LaunchedEffect(animatable, density, dragSignal) {
+        for (ignored in dragSignal) {
+            val delta = pendingDragDelta[0]
+            pendingDragDelta[0] = 0f
+            if (delta != 0f) {
+                animatable.snapTo(animatable.value - with(density) { delta.toDp() })
+            }
+        }
+    }
 
 
     val state = remember(dismissedBound, expandedBound, collapsedBound, coroutineScope) {
         animatable.updateBounds(dismissedBound.coerceAtMost(expandedBound), expandedBound)
         BottomSheetState(
             draggableState = DraggableState { delta ->
-                coroutineScope.launch {
-                    animatable.snapTo(animatable.value - with(density) { delta.toDp() })
-                }
+                pendingDragDelta[0] += delta
+                dragSignal.trySend(Unit)
             },
             onAnchorChanged = { previousAnchor = it },
             coroutineScope = coroutineScope,

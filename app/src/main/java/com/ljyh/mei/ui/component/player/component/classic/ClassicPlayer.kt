@@ -75,6 +75,7 @@ fun ClassicPlayer(
         state = state,
         modifier = modifier,
         backgroundColor = backgroundColor,
+        keepExpandedContentComposed = true,
         onDismiss = {
             stateContainer.playerConnection.player.stop()
             stateContainer.playerConnection.player.clearMediaItems()
