@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,7 @@ import com.ljyh.mei.data.model.toMediaMetadata
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.playback.queue.ListQueue
 import com.ljyh.mei.ui.component.item.Track
+import com.ljyh.mei.ui.component.playlist.TrackActionMenu
 import com.ljyh.mei.ui.component.shimmer.ListItemPlaceHolder
 import com.ljyh.mei.ui.component.shimmer.ShimmerHost
 import com.ljyh.mei.ui.component.shimmer.TextPlaceholder
@@ -75,6 +77,9 @@ import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.model.Album
 import com.ljyh.mei.ui.screen.Screen
+import com.ljyh.mei.data.model.MediaMetadata
+import com.ljyh.mei.utils.setClipboard
+import android.widget.Toast
 import java.util.UUID
 
 
@@ -86,6 +91,8 @@ fun ArtistScreen(
 ) {
     val navController = LocalNavController.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val context = LocalContext.current
+    var menuTargetTrack by remember { mutableStateOf<MediaMetadata?>(null) }
 
     val artistDetail by viewModel.artistDetail.collectAsState()
     val artistAlbums by viewModel.artistAlbums.collectAsState()
@@ -194,7 +201,7 @@ fun ArtistScreen(
                                     }
                                 )
                             },
-                            onMoreClick = {}
+                            onMoreClick = { menuTargetTrack = song.toMediaMetadata() }
                         )
                     }
                 }
@@ -244,6 +251,21 @@ fun ArtistScreen(
             }
         }
     }
+
+    TrackActionMenu(
+        targetTrack = menuTargetTrack,
+        onDismiss = { menuTargetTrack = null },
+        onPlayNext = {
+            menuTargetTrack?.let { playerConnection.playNext(it.toMediaItem()) }
+            Toast.makeText(context, "已添加到下一首", Toast.LENGTH_SHORT).show()
+        },
+        onCopyId = {
+            menuTargetTrack?.let { setClipboard(context, it.id.toString(), "id") }
+        },
+        onCopyName = {
+            menuTargetTrack?.let { setClipboard(context, it.title, "name") }
+        },
+    )
 }
 
 

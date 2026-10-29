@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
@@ -21,7 +22,8 @@ fun TrackActionMenu(
     targetTrack: MediaMetadata?,
     isCreator: Boolean = false,
     onDismiss: () -> Unit,
-    onAddToPlaylist: () -> Unit,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     onDownloadTrack: (() -> Unit)? = null,
     onDelete: () -> Unit? = {},
     onCopyId: () -> Unit,
@@ -35,14 +37,27 @@ fun TrackActionMenu(
             GridMenu(
                 contentPadding = PaddingValues(bottom = 48.dp)
             ) {
-                GridMenuItem(
-                    icon = Icons.Rounded.Add,
-                    title = "添加到歌单",
-                    onClick = {
-                        onDismiss()
-                        onAddToPlaylist()
-                    }
-                )
+                onPlayNext?.let { playNext ->
+                    GridMenuItem(
+                        icon = Icons.Rounded.SkipNext,
+                        title = "下一首播放",
+                        onClick = {
+                            onDismiss()
+                            playNext()
+                        }
+                    )
+                }
+
+                onAddToPlaylist?.let { addToPlaylist ->
+                    GridMenuItem(
+                        icon = Icons.Rounded.Add,
+                        title = "添加到歌单",
+                        onClick = {
+                            onDismiss()
+                            addToPlaylist()
+                        }
+                    )
+                }
 
                 onDownloadTrack?.let { downloadFunc ->
                     GridMenuItem(

@@ -45,7 +45,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,12 +68,15 @@ import com.ljyh.mei.di.AppDatabase
 import com.ljyh.mei.playback.queue.ListQueue
 import com.ljyh.mei.ui.component.playlist.FinalPerfectCollage
 import com.ljyh.mei.ui.component.playlist.PlaylistBackground
+import com.ljyh.mei.ui.component.playlist.TrackActionMenu
 import com.ljyh.mei.ui.component.utils.rememberDeviceInfo
 import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.screen.backToMain
 import com.ljyh.mei.ui.screen.playlist.component.PlaylistTrackList
+import com.ljyh.mei.utils.setClipboard
+import android.widget.Toast
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,6 +107,7 @@ fun LocalSongListScreen(
     val showTopBarTitle by remember {
         derivedStateOf { lazyListState.firstVisibleItemIndex > 0 }
     }
+    var menuTargetTrack by remember { mutableStateOf<MediaMetadata?>(null) }
 
     fun buildQueue(index: Int = 0): ListQueue {
         val items = tracks.map { it.id.toString() to it.toMediaItem() }
@@ -186,7 +192,7 @@ fun LocalSongListScreen(
                                     )
                                 }
                             },
-                            onMoreClick = {}
+                            onMoreClick = { menuTargetTrack = it }
                         )
                     }
                 } else {
@@ -213,7 +219,7 @@ fun LocalSongListScreen(
                                 )
                             }
                         },
-                        onMoreClick = {},
+                        onMoreClick = { menuTargetTrack = it },
                         contentPadding = PaddingValues(
                             bottom = LocalPlayerAwareWindowInsets.current.asPaddingValues()
                                 .calculateBottomPadding()
@@ -222,6 +228,21 @@ fun LocalSongListScreen(
                 }
             }
         }
+
+        TrackActionMenu(
+            targetTrack = menuTargetTrack,
+            onDismiss = { menuTargetTrack = null },
+            onPlayNext = {
+                menuTargetTrack?.let { playerConnection.playNext(it.toMediaItem()) }
+                Toast.makeText(context, "已添加到下一首", Toast.LENGTH_SHORT).show()
+            },
+            onCopyId = {
+                menuTargetTrack?.let { setClipboard(context, it.id.toString(), "id") }
+            },
+            onCopyName = {
+                menuTargetTrack?.let { setClipboard(context, it.title, "name") }
+            },
+        )
     }
 }
 

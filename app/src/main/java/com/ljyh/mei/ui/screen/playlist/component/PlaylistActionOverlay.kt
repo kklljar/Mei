@@ -8,11 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.ljyh.mei.data.model.MediaMetadata
+import com.ljyh.mei.data.model.toMediaItem
 import com.ljyh.mei.data.model.room.Playlist
 import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.playlist.AddToPlaylistSheet
 import com.ljyh.mei.ui.component.playlist.CreatePlaylistSheet
 import com.ljyh.mei.ui.component.playlist.TrackActionMenu
+import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.model.UiPlaylist
 import com.ljyh.mei.ui.screen.playlist.PlaylistViewModel
 import com.ljyh.mei.ui.screen.playlist.PlaylistTrackAddOutcome
@@ -31,6 +33,7 @@ fun PlaylistActionOverlay(
     viewModel: PlaylistViewModel
 ) {
     val context = LocalContext.current
+    val playerConnection = LocalPlayerConnection.current
     var pendingAddMediaId by remember { mutableStateOf<Long?>(null) }
     var isCreatingPlaylist by remember { mutableStateOf(false) }
 
@@ -113,6 +116,10 @@ fun PlaylistActionOverlay(
                 targetTrack = overlay.track,
                 isCreator = isCreator,
                 onDismiss = onDismiss,
+                onPlayNext = {
+                    playerConnection?.playNext(overlay.track.toMediaItem())
+                    Toast.makeText(context, "已添加到下一首", Toast.LENGTH_SHORT).show()
+                },
                 onAddToPlaylist = {
                     viewModel.getAllMePlaylist()
                     onUpdateOverlay(OverlayState.AddToPlaylist(overlay.track.id))

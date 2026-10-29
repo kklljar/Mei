@@ -19,6 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,6 +33,7 @@ import com.ljyh.mei.data.model.api.SearchResult
 import com.ljyh.mei.data.model.api.toAlbum
 import com.ljyh.mei.data.model.api.toMediaData
 import com.ljyh.mei.data.model.api.toPlaylist
+import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.data.model.toMediaItem
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.playback.queue.ListQueue
@@ -36,10 +41,13 @@ import com.ljyh.mei.ui.component.item.AlbumItem
 import com.ljyh.mei.ui.component.item.ArtistItem
 import com.ljyh.mei.ui.component.item.PlaylistItem
 import com.ljyh.mei.ui.component.item.Track
+import com.ljyh.mei.ui.component.playlist.TrackActionMenu
 import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.ui.screen.Screen
+import com.ljyh.mei.utils.setClipboard
+import android.widget.Toast
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -59,6 +67,8 @@ fun SearchResultScreen(
 
     val playerConnection = LocalPlayerConnection.current
     val navController = LocalNavController.current
+    val context = LocalContext.current
+    var menuTargetTrack by remember { mutableStateOf<MediaMetadata?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -101,11 +111,27 @@ fun SearchResultScreen(
                                 position = 0
                             )
                         )
-                    }
+                    },
+                    onSongMore = { menuTargetTrack = it.toMediaData() },
                 )
             }
         }
     }
+
+    TrackActionMenu(
+        targetTrack = menuTargetTrack,
+        onDismiss = { menuTargetTrack = null },
+        onPlayNext = {
+            menuTargetTrack?.let { playerConnection?.playNext(it.toMediaItem()) }
+            Toast.makeText(context, "已添加到下一首", Toast.LENGTH_SHORT).show()
+        },
+        onCopyId = {
+            menuTargetTrack?.let { setClipboard(context, it.id.toString(), "id") }
+        },
+        onCopyName = {
+            menuTargetTrack?.let { setClipboard(context, it.title, "name") }
+        },
+    )
 }
 
 // --- 抽离出来的子组件，使主代码更整洁 ---
@@ -161,7 +187,8 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
     data: SearchResult,
     type: SearchType,
     navController: NavController,
-    onSongClick: (List<SearchResult.Result.Song>, Int) -> Unit
+    onSongClick: (List<SearchResult.Result.Song>, Int) -> Unit,
+    onSongMore: (SearchResult.Result.Song) -> Unit,
 ) {
     when (type) {
         SearchType.Song -> {
@@ -175,7 +202,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.SearchResultList(
                         val index = songs.indexOfFirst { it.id == song.id }
                         onSongClick(songs, maxOf(0, index))
                     },
-                    onMoreClick = { }
+                    onMoreClick = { onSongMore(song) }
                 )
             }
         }
