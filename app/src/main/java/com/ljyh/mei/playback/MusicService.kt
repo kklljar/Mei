@@ -503,6 +503,16 @@ class MusicService : MediaLibraryService(),
                 error.message?.contains("Unable to resolve url") == true
 
         if (isSourceError) {
+            val mediaId = player.currentMediaItem?.mediaId
+            if (mediaId != null && connectivityManager.activeNetwork != null &&
+                mediaUriProvider.recoverAfterError(mediaId)) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, "当前音源失效，正在尝试其他音源", Toast.LENGTH_SHORT).show()
+                }
+                player.prepare()
+                player.play()
+                return
+            }
             errorCount++
             Timber.tag("MusicService").e( "Play failure detected. Count: $errorCount")
 

@@ -39,7 +39,12 @@ class MediaUriProvider @Inject constructor(
     private val lxFallbackResolver: LxFallbackResolver,
     private val unblockResolver: UnblockResolver,
 ) {
-    private val urlCache = ConcurrentHashMap<String, String>()
+    private data class CachedUrl(val url: String, val identity: String)
+    private data class FallbackResult(val uri: Uri, val identity: String)
+
+    private val urlCache = ConcurrentHashMap<String, CachedUrl>()
+    private val lastResolved = ConcurrentHashMap<String, CachedUrl>()
+    private val failedIdentities = ConcurrentHashMap<String, MutableSet<String>>()
 
     suspend fun resolveMediaUri(mediaId: String, quality: String): Uri {
         val localPath = songRepository.getSong(mediaId).firstOrNull()?.path
@@ -54,20 +59,29 @@ class MediaUriProvider @Inject constructor(
         val mode = runCatching { storedMode?.let(AlternativeSourceMode::valueOf) }.getOrNull()
             ?: if (preferences[LxFallbackEnabledKey] == true) AlternativeSourceMode.Lx else AlternativeSourceMode.Off
         val cacheKey = "$mediaId|$quality|${mode.name}"
-        urlCache[cacheKey]?.let { return it.toUri() }
+        urlCache[cacheKey]?.let {
+            lastResolved[mediaId] = it
+            return it.url.toUri()
+        }
+        val excluded = failedIdentities[mediaId].orEmpty()
 
         try {
             val response = apiService.getSongUrlV1(GetSongUrlV1(ids = "[$mediaId]", level = quality))
             val url = response.data.firstOrNull()?.url
-            if (!url.isNullOrBlank() && (mode != AlternativeSourceMode.Lx || lxFallbackResolver.isPlayable(url))) {
-                urlCache[cacheKey] = url
+            if ("netease" !in excluded && !url.isNullOrBlank() &&
+                (mode != AlternativeSourceMode.Lx || lxFallbackResolver.isPlayable(url))) {
+                val cached = CachedUrl(url, "netease")
+                urlCache[cacheKey] = cached
+                lastResolved[mediaId] = cached
                 return url.toUri()
             }
 
-            val fallback = fallback(mode, mediaId, quality)
+            val fallback = fallback(mode, mediaId, quality, excluded)
             if (fallback != null) {
-                urlCache[cacheKey] = fallback.toString()
-                return fallback
+                val cached = CachedUrl(fallback.uri.toString(), fallback.identity)
+                urlCache[cacheKey] = cached
+                lastResolved[mediaId] = cached
+                return fallback.uri
             }
             throw SourceNotFoundException("未找到可播放音源：$mediaId")
         } catch (cancelled: CancellationException) {
@@ -75,23 +89,32 @@ class MediaUriProvider @Inject constructor(
         } catch (error: SourceNotFoundException) {
             throw error
         } catch (error: Exception) {
-            val fallback = fallback(mode, mediaId, quality)
+            val fallback = fallback(mode, mediaId, quality, excluded)
             if (fallback != null) {
-                urlCache[cacheKey] = fallback.toString()
-                return fallback
+                val cached = CachedUrl(fallback.uri.toString(), fallback.identity)
+                urlCache[cacheKey] = cached
+                lastResolved[mediaId] = cached
+                return fallback.uri
             }
             throw IOException("解析歌曲链接失败：$mediaId", error)
         }
     }
 
-    private suspend fun fallback(mode: AlternativeSourceMode, mediaId: String, quality: String): Uri? =
+    private suspend fun fallback(
+        mode: AlternativeSourceMode,
+        mediaId: String,
+        quality: String,
+        excluded: Set<String>,
+    ): FallbackResult? =
         when (mode) {
             AlternativeSourceMode.Off -> null
-            AlternativeSourceMode.Lx -> lxFallbackResolver.resolve(mediaId, quality)
-            AlternativeSourceMode.Unblock -> resolveUnblock(mediaId)
+            AlternativeSourceMode.Lx -> lxFallbackResolver.resolve(mediaId, quality)?.let {
+                FallbackResult(it, "lx")
+            }
+            AlternativeSourceMode.Unblock -> resolveUnblock(mediaId, excluded)
         }
 
-    private suspend fun resolveUnblock(mediaId: String): Uri? {
+    private suspend fun resolveUnblock(mediaId: String, excluded: Set<String>): FallbackResult? {
         val song = apiService.getSongDetail(GetSongDetails(mediaId)).songs.firstOrNull() ?: return null
         val target = MusicTrack(
             id = TrackId("netease", mediaId),
@@ -102,9 +125,23 @@ class MediaUriProvider @Inject constructor(
             album = MusicAlbum(song.al.name.orEmpty(), song.al.Id.toString(), song.al.picUrl),
             durationMs = song.dt,
         )
-        val resolved = withTimeoutOrNull(20_000) { unblockResolver.resolve(target) }
-        return resolved?.takeIf { lxFallbackResolver.isPlayable(it.url) }?.url?.toUri().also {
-            Timber.tag("Unblock").d("resolved id=%s success=%s", mediaId, it != null)
-        }
+        val resolved = withTimeoutOrNull(45_000) {
+            unblockResolver.resolve(target) { candidate ->
+                val identity = "${candidate.track.id.source}:${candidate.track.id.value}"
+                identity !in excluded && lxFallbackResolver.isPlayable(candidate.url)
+            }
+        } ?: return null
+        val identity = "${resolved.track.id.source}:${resolved.track.id.value}"
+        Timber.tag("Unblock").i("resolved id=%s source=%s", mediaId, resolved.track.id.source)
+        return FallbackResult(resolved.url.toUri(), identity)
+    }
+
+    fun recoverAfterError(mediaId: String): Boolean {
+        val previous = lastResolved.remove(mediaId) ?: return false
+        if (previous.identity == "lx") return false
+        failedIdentities.getOrPut(mediaId) { ConcurrentHashMap.newKeySet() }.add(previous.identity)
+        urlCache.keys.removeIf { it.startsWith("$mediaId|") }
+        Timber.tag("Unblock").w("excluding failed source id=%s identity=%s", mediaId, previous.identity)
+        return true
     }
 }
