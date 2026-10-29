@@ -71,6 +71,8 @@ val DownloadQualityKey = stringPreferencesKey("downloadQuality")
 val EmbedOriginalTtmlKey = booleanPreferencesKey("embedOriginalTtml")
 val QqTimeoutKey = stringPreferencesKey("qq_timeout")
 val SearchHistoryKey = stringPreferencesKey("searchHistory")
+val LxFallbackEnabledKey = booleanPreferencesKey("lxFallbackEnabled")
+val LxSourceUrlsKey = stringPreferencesKey("lxSourceUrls")
 
 enum class QqTimeout(val seconds: Int, val label: String) {
     Sec3(3, "3秒"),

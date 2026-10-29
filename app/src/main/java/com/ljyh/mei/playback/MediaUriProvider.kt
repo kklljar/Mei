@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import com.ljyh.mei.data.model.api.GetSongUrlV1
 import com.ljyh.mei.data.network.api.ApiService
 import com.ljyh.mei.di.repository.SongRepository
+import com.ljyh.mei.playback.lx.LxFallbackResolver
 import kotlinx.coroutines.flow.firstOrNull
 import timber.log.Timber
 import java.io.File
@@ -19,6 +20,7 @@ class SourceNotFoundException(message: String) : IOException(message)
 class MediaUriProvider @Inject constructor(
     private val apiService: ApiService,
     private val songRepository: SongRepository,
+    private val lxFallbackResolver: LxFallbackResolver,
 ) {
     private val urlCache = ConcurrentHashMap<String, String>()
 
@@ -42,15 +44,25 @@ class MediaUriProvider @Inject constructor(
             )
             val url = response.data.getOrNull(0)?.url
 
-            if (url.isNullOrBlank()) {
+            if (url.isNullOrBlank() ||
+                (lxFallbackResolver.isEnabled() && !lxFallbackResolver.isPlayable(url))) {
                 Timber.tag("MediaUriProvider").d(response.toString())
-                throw SourceNotFoundException("API returned empty URL for $mediaId")
+                val fallback = lxFallbackResolver.resolve(mediaId, quality)
+                if (fallback != null) {
+                    urlCache[mediaId] = fallback.toString()
+                    return fallback
+                }
+                throw SourceNotFoundException("API and LX sources returned no URL for $mediaId")
             }
 
             urlCache[mediaId] = url
             url.toUri()
         } catch (e: Exception) {
             if (e is SourceNotFoundException) throw e
+            lxFallbackResolver.resolve(mediaId, quality)?.let { fallback ->
+                urlCache[mediaId] = fallback.toString()
+                return fallback
+            }
             throw IOException("Network error resolving URL for $mediaId", e)
         }
     }

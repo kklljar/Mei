@@ -140,6 +140,7 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.android)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.serialization.android)
 
     implementation(libs.korlibs.crypto){
@@ -153,6 +154,7 @@ dependencies {
 
     // 列表拖拽
     implementation(libs.reorderable)
+    implementation(libs.quickjs)
 
     // 歌词组件
     implementation(libs.lyrics.core)

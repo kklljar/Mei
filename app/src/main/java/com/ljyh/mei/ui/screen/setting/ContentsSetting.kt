@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cookie
 import androidx.compose.material.icons.rounded.TipsAndUpdates
+import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.ljyh.mei.constants.CookieKey
 import com.ljyh.mei.constants.QqTimeout
 import com.ljyh.mei.constants.QqTimeoutKey
+import com.ljyh.mei.constants.LxFallbackEnabledKey
+import com.ljyh.mei.constants.LxSourceUrlsKey
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.ui.ShareViewModel
 import com.ljyh.mei.ui.component.EditTextPreference
@@ -38,6 +41,7 @@ import com.ljyh.mei.ui.component.IconButton
 import com.ljyh.mei.ui.component.ListPreference
 import com.ljyh.mei.ui.component.PreferenceEntry
 import com.ljyh.mei.ui.component.PreferenceGroupTitle
+import com.ljyh.mei.ui.component.SwitchPreference
 import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
 import com.ljyh.mei.ui.screen.backToMain
@@ -136,6 +140,31 @@ fun ContentsSetting(
                 values = QqTimeout.entries.toList(),
                 valueText = { it.label },
                 onValueSelected = { onQqTimeoutChange(it.name) }
+            )
+
+            PreferenceGroupTitle(title = "备用音源")
+            val (lxEnabled, onLxEnabledChange) = rememberPreference(
+                LxFallbackEnabledKey,
+                defaultValue = false,
+            )
+            val (lxSourceUrls, onLxSourceUrlsChange) = rememberPreference(
+                LxSourceUrlsKey,
+                defaultValue = "",
+            )
+            SwitchPreference(
+                title = { Text("LX 多音源失败回退") },
+                description = "网易云无法获取播放链接时，依次尝试下方 LX 脚本",
+                icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
+                checked = lxEnabled,
+                onCheckedChange = onLxEnabledChange,
+            )
+            EditTextPreference(
+                title = { Text("LX 音源脚本直链") },
+                icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
+                value = lxSourceUrls,
+                onValueChange = onLxSourceUrlsChange,
+                singleLine = false,
+                isInputValid = { true },
             )
         }
     }
