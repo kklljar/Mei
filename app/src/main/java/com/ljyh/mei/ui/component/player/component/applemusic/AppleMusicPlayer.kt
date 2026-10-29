@@ -78,7 +78,6 @@ import com.ljyh.mei.ui.component.player.OverlayState
 import com.ljyh.mei.ui.component.player.component.FluidBackground
 import com.ljyh.mei.ui.component.player.component.classic.component.FullScreenImageViewer
 import com.ljyh.mei.ui.component.player.component.LyricScreen
-import com.ljyh.mei.utils.audio.AudioVisualizerManager
 import com.ljyh.mei.ui.component.player.component.PlayerControlsSection
 import com.ljyh.mei.ui.component.player.overlay.PlayerOverlayHandler
 import com.ljyh.mei.ui.component.player.state.PlayerStateContainer
@@ -275,15 +274,6 @@ fun AppleMusicPlayer(
         ) {
             val coverUrl = mediaMetadata?.coverUrl
 
-            val audioVisualizerManager = remember { AudioVisualizerManager(context) }
-
-            LaunchedEffect(stateContainer.playerConnection.player) {
-                val player = stateContainer.playerConnection.player as? ExoPlayer
-                player?.audioSessionId?.let { sessionId ->
-                    audioVisualizerManager.attachToPlayer(sessionId)
-                }
-            }
-
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -294,7 +284,6 @@ fun AppleMusicPlayer(
             )
             FluidBackground(
                 imageUrl = coverUrl,
-                audioVisualizerManager = audioVisualizerManager,
                 isPlaying = isPlaying,
                 renderAlpha = meshBackgroundAlpha,
             )
