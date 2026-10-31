@@ -57,6 +57,12 @@ android {
         buildConfig = true
         compose = true
     }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
 }
 
 configurations.all {
@@ -140,6 +146,8 @@ dependencies {
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.play.services.location)
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.serialization.android)
@@ -156,6 +164,10 @@ dependencies {
     // 列表拖拽
     implementation(libs.reorderable)
     implementation(libs.quickjs)
+    implementation("com.google.crypto.tink:tink:1.7.0") {
+        // Only the standalone X25519 primitive is used, not Tink's JSON keyset APIs.
+        exclude(group = "com.google.code.gson", module = "gson")
+    }
 
     // 歌词组件
     implementation(libs.lyrics.core)
@@ -178,3 +190,23 @@ dependencies {
 //        }
 //    }
 //}
+
+// Cargo sources are outside AGP's C/C++ source discovery. Changes must invalidate each ABI build.
+val usbRustInputs = fileTree("src/main/rust/mei-usb-core") {
+    include("src/**/*.rs", "include/**/*.h", "cmake/**/*.cmake", "Cargo.toml", "Cargo.lock")
+}
+tasks.configureEach {
+    if (name.startsWith("buildCMake")) inputs.files(usbRustInputs).withPropertyName("usbRustCore")
+}
+
+// Cargo emits the USB cdylib directly; CMake wires it into the usbdriver targets.
+// Wait for the native build before AGP snapshots each variant's generated JNI inputs.
+listOf("debug", "release", "optimized").forEach { variant ->
+    android.sourceSets.getByName(variant).jniLibs.directories.add(
+        layout.buildDirectory.dir("generated/usbRustJni/$variant").get().asFile.absolutePath
+    )
+    val taskSuffix = variant.replaceFirstChar { it.uppercase() }
+    tasks.matching { it.name == "merge${taskSuffix}JniLibFolders" }.configureEach {
+        dependsOn("externalNativeBuild$taskSuffix")
+    }
+}

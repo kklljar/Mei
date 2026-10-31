@@ -26,15 +26,18 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -82,7 +85,17 @@ fun FindMusicScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("发现音乐") }
+                    title = { Text("发现音乐") },
+                    actions = {
+                        TextButton(onClick = { navController.navigate(Screen.AudioMatch.route) }) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = "听歌识曲"
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("听歌识曲")
+                        }
+                    }
                 )
                 // 分类选择器
                 CategorySelector(

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,6 +53,9 @@ fun SleepTimerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedOption by remember { mutableStateOf<String?>(null) }
+    val sleepDetectionError = remember {
+        playerConnection.service.sleepDetectionController?.availabilityError()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -148,6 +152,24 @@ fun SleepTimerSheet(
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
+
+            // 5. 特殊选项：智能睡眠检测（入睡后自动暂停）
+            if (sleepDetectionError == null) {
+                ListItem(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable {
+                            playerConnection.service.sleepTimer.startSleepDetection(120) { }
+                            onDismiss()
+                        },
+                    headlineContent = { Text("智能睡眠检测后停止") },
+                    supportingContent = { Text("入睡后自动暂停，最长等待 2 小时") },
+                    trailingContent = {
+                        Icon(Icons.Rounded.Bedtime, contentDescription = null)
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

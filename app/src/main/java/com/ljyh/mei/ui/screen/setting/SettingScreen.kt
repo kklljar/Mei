@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Kitesurfing
 import androidx.compose.material.icons.rounded.Language
@@ -97,6 +98,14 @@ fun SettingScreen(
                 icon = { Icon(Icons.Rounded.Download, contentDescription = null) },
                 onClick = {
                     Screen.DownloadSettings.navigate(navController)
+                }
+            )
+
+            PreferenceEntry(
+                title = { Text("缓存") },
+                icon = { Icon(Icons.Rounded.Cached, contentDescription = null) },
+                onClick = {
+                    Screen.CacheSettings.navigate(navController)
                 }
             )
 

@@ -5,12 +5,18 @@ import android.os.Build
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
@@ -23,6 +29,7 @@ import com.ljyh.mei.ui.component.player.component.FluidBackground
 import com.ljyh.mei.ui.component.player.overlay.PlayerOverlayHandler
 import com.ljyh.mei.ui.component.player.state.PlayerStateContainer
 import com.ljyh.mei.ui.component.sheet.BottomSheet
+import com.ljyh.mei.ui.component.sheet.BottomSheetContainerMotion
 import com.ljyh.mei.ui.component.sheet.BottomSheetMorphSpec
 import com.ljyh.mei.ui.component.sheet.BottomSheetState
 import com.ljyh.mei.ui.component.sheet.HorizontalSwipeDirection
@@ -51,9 +58,6 @@ fun ClassicPlayer(
 
     // --- 从状态容器获取数据 ---
     val mediaMetadata by stateContainer.mediaMetadata
-    val sliderPosition by remember { derivedStateOf { stateContainer.sliderPosition } }
-    val duration by remember { derivedStateOf { stateContainer.duration } }
-
     // 背景颜色计算
     val colorScheme = MaterialTheme.colorScheme
     val backgroundColor = remember(isSystemInDarkTheme, state.value, state.collapsedBound) {
@@ -71,6 +75,7 @@ fun ClassicPlayer(
         state = state,
         modifier = modifier,
         backgroundColor = backgroundColor,
+        containerMotion = BottomSheetContainerMotion.Sheet,
         keepExpandedContentComposed = true,
         onDismiss = {
             stateContainer.playerConnection.player.stop()
@@ -83,19 +88,32 @@ fun ClassicPlayer(
             }
         },
         collapsedContent = {
-            FloatingCapsulePlayerBarContent(
-                title = mediaMetadata?.title,
-                artist = mediaMetadata?.artists?.joinToString { it.name },
-                coverUrl = mediaMetadata?.coverUrl,
-                isPlaying = stateContainer.isPlaying.value,
-                canSkipNext = stateContainer.canSkipNext.value,
-                onClick = state::expandSoft,
-                onPlayPause = {
-                    val player = stateContainer.playerConnection.player
-                    if (player.isPlaying) player.pause() else player.play()
-                },
-                onNext = stateContainer.playerConnection::seekToNext,
-            )
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                FloatingCapsulePlayerBarContent(
+                    title = mediaMetadata?.title,
+                    artist = mediaMetadata?.artists?.joinToString { it.name },
+                    coverUrl = mediaMetadata?.coverUrl,
+                    isPlaying = stateContainer.isPlaying.value,
+                    canSkipNext = stateContainer.canSkipNext.value,
+                    onClick = state::expandSoft,
+                    onPlayPause = {
+                        val player = stateContainer.playerConnection.player
+                        if (player.isPlaying) player.pause() else player.play()
+                    },
+                    onNext = stateContainer.playerConnection::seekToNext,
+                    // Sheet 模式下容器不再提供胶囊内边距与阴影，由胶囊条自带。
+                    modifier = Modifier
+                        .padding(horizontal = FloatingCapsuleHorizontalPadding)
+                        .then(
+                            if (device.isTablet && device.isLandscape) {
+                                Modifier.widthIn(max = 560.dp)
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(24.dp)),
+                )
+            }
         },
         morphSpec = BottomSheetMorphSpec(
             collapsedHorizontalMargin = FloatingCapsuleHorizontalPadding,
@@ -113,8 +131,8 @@ fun ClassicPlayer(
         val isPlaying by stateContainer.isPlaying
         FluidBackground(
             imageUrl = coverUrl,
-            isPlaying = isPlaying && state.progress > 0.02f,
-            renderAlpha = state.progress,
+            // GL 网格在展开内容可见前不渲染，折叠挂后台时不再空烧 GPU。
+            isPlaying = isPlaying && state.progress > 0.25f,
         )
 
 

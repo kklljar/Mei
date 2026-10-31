@@ -52,7 +52,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -79,6 +83,20 @@ data class BottomSheetMorphSpec(
     val expandedBottomMargin: Dp = 0.dp,
 )
 
+/**
+ * Controls whether the player surface changes size or moves as a fixed-size sheet.
+ *
+ * [Morph] interpolates the container's width and height every frame, which re-measures the
+ * entire expanded subtree (and resizes any GL surface inside it) on each animation frame.
+ * [Sheet] keeps the container at its expanded size and only translates it, so the expanded
+ * content is measured once; the collapsed capsule look is recreated per frame in the draw
+ * phase instead.
+ */
+enum class BottomSheetContainerMotion {
+    Morph,
+    Sheet,
+}
+
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -89,6 +107,7 @@ fun BottomSheet(
     onDismiss: (() -> Unit)? = null,
     onHorizontalSwipe: ((direction: HorizontalSwipeDirection) -> Unit)? = null,
     morphSpec: BottomSheetMorphSpec? = null,
+    containerMotion: BottomSheetContainerMotion = BottomSheetContainerMotion.Morph,
     sharedTransitionKey: String? = null,
     keepExpandedContentComposed: Boolean = false,
     transparentCollapsedContainer: Boolean = false,
@@ -128,11 +147,25 @@ fun BottomSheet(
         } else {
             RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius)
         }
+        val isSheetMotion = containerMotion == BottomSheetContainerMotion.Sheet
         val containerModifier = if (morphLayout != null) {
             Modifier
                 .align(Alignment.TopCenter)
-                .width(morphLayout.width)
-                .height(morphLayout.height)
+                .width(
+                    if (isSheetMotion) {
+                        // Fixed width keeps the expanded subtree measured once; the collapsed
+                        // capsule insets are recreated in the draw phase below.
+                        (maxWidth - morphSpec.expandedHorizontalMargin * 2).coerceAtLeast(0.dp)
+                    } else {
+                        morphLayout.width
+                    }
+                )
+                .height(
+                    when (containerMotion) {
+                        BottomSheetContainerMotion.Morph -> morphLayout.height
+                        BottomSheetContainerMotion.Sheet -> state.expandedBound
+                    }
+                )
         } else {
             Modifier.fillMaxSize()
         }
@@ -171,23 +204,59 @@ fun BottomSheet(
                     reverseDirection = true,
                     flingBehavior = flingBehavior,
                 )
-                .shadow(elevation = 8.dp, shape = sheetShape)
+                .shadow(
+                    elevation = if (isSheetMotion || transparentCollapsedContainer) 0.dp else 8.dp,
+                    shape = sheetShape,
+                )
                 .clip(sheetShape)
-                .background(
-                    if (morphLayout != null) {
-                        backgroundColor.copy(
-                            alpha = backgroundColor.alpha * if (transparentCollapsedContainer) {
-                                ((progress - 0.12f) / 0.28f).coerceIn(0f, 1f)
-                            } else if (keepExpandedContentComposed) {
-                                1f
+                .then(
+                    if (isSheetMotion && morphLayout != null && morphSpec != null) {
+                        Modifier.drawBehind {
+                            // Reproduces the Morph capsule geometry in the draw phase: reading
+                            // sheet progress here only invalidates drawing, never composition
+                            // or measure, so the expanded subtree is never re-laid-out.
+                            val fraction = state.progress.coerceIn(0f, 1f)
+                            val insetX = morphSpec.collapsedHorizontalMargin.toPx() * (1f - fraction)
+                            val collapsedHeightPx = morphSpec.collapsedHeight.toPx()
+                            val heightPx = collapsedHeightPx +
+                                (size.height - collapsedHeightPx) * fraction
+                            val cornerPx = lerp(
+                                morphSpec.collapsedCornerRadius,
+                                morphSpec.expandedCornerRadius,
+                                fraction,
+                            ).toPx()
+                            val alpha = if (transparentCollapsedContainer) {
+                                ((fraction - 0.12f) / 0.28f).coerceIn(0f, 1f)
                             } else {
-                                morphLayout.backgroundAlpha
+                                // The capsule paints its own surface. An opaque fixed-size sheet
+                                // at fraction zero shows up as a full-width strip behind it.
+                                fraction
                             }
-                        )
+                            drawRoundRect(
+                                color = backgroundColor.copy(alpha = backgroundColor.alpha * alpha),
+                                topLeft = Offset(insetX, 0f),
+                                size = Size(size.width - insetX * 2, heightPx),
+                                cornerRadius = CornerRadius(cornerPx),
+                            )
+                        }
                     } else {
-                        backgroundColor.copy(
-                            alpha = backgroundColor.alpha *
-                                    ((state.progress - 0.15f) / 0.85f).coerceIn(0f, 1f)
+                        Modifier.background(
+                            if (morphLayout != null) {
+                                backgroundColor.copy(
+                                    alpha = backgroundColor.alpha * if (transparentCollapsedContainer) {
+                                        ((progress - 0.12f) / 0.28f).coerceIn(0f, 1f)
+                                    } else if (keepExpandedContentComposed) {
+                                        1f
+                                    } else {
+                                        morphLayout.backgroundAlpha
+                                    }
+                                )
+                            } else {
+                                backgroundColor.copy(
+                                    alpha = backgroundColor.alpha *
+                                            ((state.progress - 0.15f) / 0.85f).coerceIn(0f, 1f)
+                                )
+                            }
                         )
                     }
                 )
@@ -246,7 +315,7 @@ fun BottomSheet(
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
-                                alpha = if (keepExpandedContentComposed) {
+                                alpha = if (keepExpandedContentComposed && !isSheetMotion) {
                                     1f
                                 } else {
                                     ((state.progress - 0.25f) * 4).coerceIn(0f, 1f)

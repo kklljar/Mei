@@ -1,10 +1,10 @@
 package com.ljyh.mei.ui.component.player.component.sheet
 
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.toMutableStateList
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ljyh.mei.constants.PlayerActionKey
-import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.model.PlayerAction
 import com.ljyh.mei.utils.rememberPreference
 import timber.log.Timber
@@ -91,8 +91,9 @@ fun PlayerActionSettingsSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp) // 使用 spaceBy 而不是 SpaceEvenly 来展示紧凑效果
+                    .horizontalScroll(rememberScrollState())
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (selectedActions.isEmpty()) {
                     Text("请至少选择一个功能", color = MaterialTheme.colorScheme.error)
@@ -124,8 +125,10 @@ fun PlayerActionSettingsSheet(
             // 使用 FlowRow (如果图标很多) 或者 LazyRow
             // 这里假设图标不多，用 Row 简单展示，如果多可以用 FlowRow
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 availableActions.forEach { action ->
                     ActionChip(

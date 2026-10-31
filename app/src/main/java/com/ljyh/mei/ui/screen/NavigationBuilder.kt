@@ -32,10 +32,15 @@ import com.ljyh.mei.ui.screen.search.SearchResultScreen
 import com.ljyh.mei.ui.screen.setting.AppearanceSettings
 import com.ljyh.mei.ui.screen.artist.ArtistScreen
 import com.ljyh.mei.ui.screen.main.findmusic.FindMusicScreen
+import com.ljyh.mei.ui.screen.main.findmusic.AudioMatchScreen
+import com.ljyh.mei.ui.screen.setting.CacheSettingsScreen
 import com.ljyh.mei.ui.screen.setting.ContentsSetting
 import com.ljyh.mei.ui.screen.setting.DownloadManageScreen
 import com.ljyh.mei.ui.screen.setting.DownloadSetting
+import com.ljyh.mei.ui.screen.setting.EqualizerSettingScreen
 import com.ljyh.mei.ui.screen.setting.PlaySetting
+import com.ljyh.mei.ui.screen.setting.LxSourcesScreen
+import com.ljyh.mei.ui.screen.setting.UsbExclusiveSettingsScreen
 import com.ljyh.mei.ui.screen.setting.SettingScreen
 import com.ljyh.mei.ui.screen.log.LogScreen
 import com.ljyh.mei.ui.screen.comment.CommentScreen
@@ -58,6 +63,10 @@ fun NavGraphBuilder.navigationBuilder(
         FindMusicScreen(scrollBehavior = scrollBehavior)
     }
 
+    composable(Screen.AudioMatch.route) {
+        AudioMatchScreen(scrollBehavior = scrollBehavior)
+    }
+
     composable(Screen.Test.route) {
         Test()
     }
@@ -77,8 +86,24 @@ fun NavGraphBuilder.navigationBuilder(
         PlaySetting(scrollBehavior)
     }
 
+    composable(Screen.EqualizerSettings.route) {
+        EqualizerSettingScreen(scrollBehavior)
+    }
+
+    composable(Screen.UsbExclusiveSettings.route) {
+        UsbExclusiveSettingsScreen(scrollBehavior)
+    }
+
+    composable(Screen.LxSources.route) {
+        LxSourcesScreen(scrollBehavior)
+    }
+
     composable(Screen.DownloadSettings.route) {
         DownloadSetting(scrollBehavior)
+    }
+
+    composable(Screen.CacheSettings.route) {
+        CacheSettingsScreen(scrollBehavior)
     }
 
     composable(Screen.DownloadManage.route) {

@@ -6,7 +6,9 @@ import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
 import com.ljyh.mei.constants.AndroidUserAgent
 import com.ljyh.mei.constants.QqCookieKey
+import com.ljyh.mei.data.network.NeteaseHttp
 import com.ljyh.mei.data.network.QQMusicUApiService
+import com.ljyh.mei.data.network.XeApiClient
 import com.ljyh.mei.data.network.api.ApiService
 import com.ljyh.mei.data.network.api.EApiService
 import com.ljyh.mei.data.network.api.WeApiService
@@ -21,6 +23,9 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -71,6 +76,34 @@ object RetrofitModule {
             }
         }.build()
     }
+
+    @Provides
+    @Singleton
+    fun provideNeteaseJson(): Json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+        isLenient = true
+    }
+
+    @Provides
+    @Singleton
+    fun provideNeteaseHttp(okHttpClient: OkHttpClient, json: Json): NeteaseHttp =
+        NeteaseHttp(
+            client = HttpClient(OkHttp) {
+                expectSuccess = true
+                engine { preconfigured = okHttpClient }
+            },
+            json = json,
+        )
+
+    @Provides
+    @Singleton
+    fun provideXeApiClient(
+        @ApplicationContext context: Context,
+        http: NeteaseHttp,
+        json: Json,
+    ): XeApiClient = XeApiClient(context, http, json)
 
     private fun configureUnsafeSSL(builder: OkHttpClient.Builder) {
         try {

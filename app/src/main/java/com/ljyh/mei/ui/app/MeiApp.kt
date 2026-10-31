@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -289,12 +290,14 @@ fun MeiApp(
                     sidebarModifier = Modifier.align(Alignment.CenterStart),
                     bottomBarModifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .zIndex(if (playerBottomSheetState.isCollapsed) 2f else 0f)
                         .padding(bottom = bottomInset + FloatingCapsuleBottomMargin),
                 )
                 BottomSheetPlayer(
                     state = playerBottomSheetState,
                     collapsedBottomOffset = playerNavigationOffset,
                     backdrop = mobileBackdrop.takeIf { mobileLiquidGlassEnabled },
+                    modifier = Modifier.zIndex(if (playerBottomSheetState.isCollapsed) 1f else 3f),
                 )
             }
         }

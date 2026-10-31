@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -173,6 +174,15 @@ fun FloatingCapsulePlayerBarContent(
         modifier = modifier
             .fillMaxWidth()
             .height(FloatingCapsuleMiniPlayerHeight)
+            .clip(shape)
+            .background(
+                color = if (backdrop == null) {
+                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f)
+                } else {
+                    Color.Transparent
+                },
+                shape = shape,
+            )
             .liquidGlass(backdrop, shape, glassSurfaceColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

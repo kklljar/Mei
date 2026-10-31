@@ -1,6 +1,10 @@
 package com.ljyh.mei.ui.screen.setting
 
+import android.content.Intent
+import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -11,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cookie
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,12 +36,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.ljyh.mei.constants.CookieKey
 import com.ljyh.mei.constants.QqCookieKey
-import com.ljyh.mei.constants.AlternativeSourceMode
-import com.ljyh.mei.constants.AlternativeSourceModeKey
+import com.ljyh.mei.utils.preferences.AudioSourceMode
+import com.ljyh.mei.utils.preferences.AudioSourceModeKey
 import com.ljyh.mei.constants.QqTimeout
 import com.ljyh.mei.constants.QqTimeoutKey
-import com.ljyh.mei.constants.LxFallbackEnabledKey
-import com.ljyh.mei.constants.LxSourceUrlsKey
+import com.ljyh.mei.constants.DesktopLyricsEnabledKey
+import com.ljyh.mei.constants.DesktopLyricsLockedKey
 import com.ljyh.mei.data.network.Resource
 import com.ljyh.mei.ui.ShareViewModel
 import com.ljyh.mei.ui.component.EditTextPreference
@@ -47,7 +52,9 @@ import com.ljyh.mei.ui.component.PreferenceGroupTitle
 import com.ljyh.mei.ui.component.SwitchPreference
 import com.ljyh.mei.ui.local.LocalNavController
 import com.ljyh.mei.ui.local.LocalPlayerAwareWindowInsets
+import com.ljyh.mei.ui.screen.Screen
 import com.ljyh.mei.ui.screen.backToMain
+import androidx.core.net.toUri
 import com.ljyh.mei.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,43 +166,75 @@ fun ContentsSetting(
             )
 
             PreferenceGroupTitle(title = "备用音源")
-            val (lxEnabled, onLxEnabledChange) = rememberPreference(
-                LxFallbackEnabledKey,
-                defaultValue = false,
-            )
-            val (lxSourceUrls, onLxSourceUrlsChange) = rememberPreference(
-                LxSourceUrlsKey,
-                defaultValue = "",
-            )
-            val defaultMode = if (lxEnabled) AlternativeSourceMode.Lx.name else AlternativeSourceMode.Off.name
-            val (alternativeMode, onAlternativeModeChange) = rememberPreference(
-                AlternativeSourceModeKey,
-                defaultValue = defaultMode,
-            )
-            val selectedMode = runCatching { AlternativeSourceMode.valueOf(alternativeMode) }
-                .getOrDefault(AlternativeSourceMode.Off)
+            val (audioSourceModeStr, onAudioSourceModeChange) = rememberPreference(AudioSourceModeKey, defaultValue = AudioSourceMode.Lx.name)
+            val selectedMode = runCatching { AudioSourceMode.valueOf(audioSourceModeStr) }
+                .getOrDefault(AudioSourceMode.Lx)
             ListPreference(
                 title = { Text("备用音源模式") },
                 description = "LX 与多平台解灰互斥，避免同一次播放重复请求",
                 icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
                 selectedValue = selectedMode,
-                values = AlternativeSourceMode.entries.toList(),
+                values = AudioSourceMode.entries.toList(),
                 valueText = { it.label },
-                onValueSelected = {
-                    onAlternativeModeChange(it.name)
-                    onLxEnabledChange(it == AlternativeSourceMode.Lx)
-                },
+                onValueSelected = { onAudioSourceModeChange(it.name) },
             )
-            if (selectedMode == AlternativeSourceMode.Lx) {
-                EditTextPreference(
-                    title = { Text("LX 音源脚本直链") },
+            if (selectedMode == AudioSourceMode.Lx) {
+                PreferenceEntry(
+                    title = { Text("LX 自定义音源") },
+                    description = "导入、排序与检查 JS 音源脚本",
                     icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
-                    value = lxSourceUrls,
-                    onValueChange = onLxSourceUrlsChange,
-                    singleLine = false,
-                    isInputValid = { true },
+                    onClick = { Screen.LxSources.navigate(navController) },
                 )
             }
+
+            val (desktopLyricsEnabled, onDesktopLyricsEnabled) = rememberPreference(
+                DesktopLyricsEnabledKey,
+                defaultValue = false,
+            )
+            val (desktopLyricsLocked, onDesktopLyricsLockedChange) = rememberPreference(
+                DesktopLyricsLockedKey,
+                defaultValue = false,
+            )
+
+            PreferenceGroupTitle(title = "桌面歌词")
+            var waitingForOverlayPermission by remember { mutableStateOf(false) }
+            val overlayPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.StartActivityForResult()
+            ) {
+                if (Settings.canDrawOverlays(context) && waitingForOverlayPermission) {
+                    onDesktopLyricsEnabled(true)
+                }
+                waitingForOverlayPermission = false
+            }
+            val overlayPermissionGranted = Settings.canDrawOverlays(context)
+            SwitchPreference(
+                title = { Text("桌面歌词") },
+                description = if (overlayPermissionGranted) "在其他应用上层显示卡拉OK歌词，可在播放器内拖动与锁定"
+                else "开启需授予悬浮窗权限",
+                icon = { Icon(Icons.Rounded.Lyrics, contentDescription = null) },
+                checked = desktopLyricsEnabled && overlayPermissionGranted,
+                onCheckedChange = { checked ->
+                    if (!checked) onDesktopLyricsEnabled(false)
+                    else if (overlayPermissionGranted) onDesktopLyricsEnabled(true)
+                    else {
+                        waitingForOverlayPermission = true
+                        overlayPermissionLauncher.launch(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                "package:${context.packageName}".toUri(),
+                            )
+                        )
+                    }
+                },
+            )
+            SwitchPreference(
+                title = { Text("启动时锁定") },
+                description = "锁定后只显示歌词并穿透触摸，可在悬浮窗上解除锁定",
+                icon = { Icon(Icons.Rounded.Lyrics, contentDescription = null) },
+                checked = desktopLyricsLocked,
+                onCheckedChange = onDesktopLyricsLockedChange,
+                isEnabled = desktopLyricsEnabled,
+            )
         }
     }
 }

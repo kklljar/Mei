@@ -29,6 +29,45 @@ val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 val CookieKey = stringPreferencesKey("cookie")
 val QqCookieKey = stringPreferencesKey("qq_music_cookie")
 val MusicQualityKey = stringPreferencesKey("musicQuality")
+val ImageCacheLimitMbKey = intPreferencesKey("imageCacheLimitMb")
+val MusicCacheLimitMbKey = intPreferencesKey("musicCacheLimitMb")
+
+// Playback effects. Band levels are stored as millibels, separated by commas.
+val EqualizerEnabledKey = booleanPreferencesKey("equalizerEnabled")
+val EqualizerPresetKey = stringPreferencesKey("equalizerPreset")
+val EqualizerBandLevelsKey = stringPreferencesKey("equalizerBandLevels")
+val LoudnessEnhancerGainKey = intPreferencesKey("loudnessEnhancerGain")
+val ParametricEqualizerProfileKey = stringPreferencesKey("parametricEqualizerProfile")
+val ReverbProfileKey = stringPreferencesKey("reverbProfile")
+val OutputLimiterEnabledKey = booleanPreferencesKey("outputLimiterEnabled")
+val AutoEqEnabledKey = booleanPreferencesKey("autoEqEnabled")
+val AutoEqIntensityKey = intPreferencesKey("autoEqIntensity")
+val UserEqualizerPresetsKey = stringPreferencesKey("userEqualizerPresets")
+
+// Desktop lyrics overlay.
+val DesktopLyricsEnabledKey = booleanPreferencesKey("desktopLyricsEnabled")
+val DesktopLyricsLockedKey = booleanPreferencesKey("desktopLyricsLocked")
+val DesktopLyricsTextColorKey = stringPreferencesKey("desktopLyricsTextColor")
+val DesktopLyricsTranslationColorKey = stringPreferencesKey("desktopLyricsTranslationColor")
+val DesktopLyricsFontSizeKey = intPreferencesKey("desktopLyricsFontSize")
+val DesktopLyricsTranslationFontSizeKey = intPreferencesKey("desktopLyricsTranslationFontSize")
+val DesktopLyricsControlsHideDelayKey = intPreferencesKey("desktopLyricsControlsHideDelay")
+val DesktopLyricsXKey = intPreferencesKey("desktopLyricsX")
+val DesktopLyricsYKey = intPreferencesKey("desktopLyricsY")
+
+const val DefaultDesktopLyricsTextColor = "#FFFFFFFF"
+const val DefaultDesktopLyricsTranslationColor = "#FFCECED3"
+const val DefaultDesktopLyricsFontSize = 18
+const val DefaultDesktopLyricsTranslationFontSize = 13
+const val DefaultDesktopLyricsControlsHideDelay = 12
+
+// USB exclusive output.
+val UsbExclusivePlaybackKey = booleanPreferencesKey("usbExclusivePlayback")
+
+// Smart transitions (BeatNet).
+val SmartTransitionEnabledKey = booleanPreferencesKey("smartTransition.enabled")
+val SmartTransitionModeKey = stringPreferencesKey("smartTransition.mode")
+val SmartTransitionDurationKey = intPreferencesKey("smartTransition.durationSeconds")
 
 
 val CoverStyleKey = stringPreferencesKey("coverStyle")
@@ -46,6 +85,7 @@ val LoopPlaybackKey = booleanPreferencesKey("loopPlayback")
 val NoAudioSourceKey = booleanPreferencesKey("noAudioSource")
 val IsShuffleModeKey = booleanPreferencesKey("shuffleMode")
 val RepeatModeKey = intPreferencesKey("repeatMode")
+val LastPlaybackQueueKey = stringPreferencesKey("lastPlaybackQueue")
 
 val DeviceIdKey = stringPreferencesKey("deviceId")
 val DebugKey = booleanPreferencesKey("debug")
@@ -108,6 +148,8 @@ enum class LyricTextAlignment {
 
 
 // standard, exhigh, lossless, hires, jyeffect(高清环绕声), sky(沉浸环绕声), jymaster(超清母带) 进行音质判断
+enum class SmartTransitionMode { Smart, Fixed }
+
 enum class MusicQuality(val text: String, val explanation:String) {
     STANDARD("standard", "标准"),
     EXHIGH("exhigh","极高"),

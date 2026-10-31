@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 class PlaybackQueueManager(
-    private val player: ExoPlayer,
+    private val player: Player,
     private val apiService: ApiService,
     private val weApiService: WeApiService,
     private val scope: CoroutineScope

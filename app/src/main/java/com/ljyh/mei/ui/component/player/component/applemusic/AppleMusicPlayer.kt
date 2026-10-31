@@ -8,6 +8,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
@@ -52,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -82,6 +84,7 @@ import com.ljyh.mei.ui.component.player.component.PlayerControlsSection
 import com.ljyh.mei.ui.component.player.overlay.PlayerOverlayHandler
 import com.ljyh.mei.ui.component.player.state.PlayerStateContainer
 import com.ljyh.mei.ui.component.sheet.BottomSheet
+import com.ljyh.mei.ui.component.sheet.BottomSheetContainerMotion
 import com.ljyh.mei.ui.component.sheet.BottomSheetMorphSpec
 import com.ljyh.mei.ui.component.sheet.BottomSheetState
 import com.ljyh.mei.ui.component.sheet.HorizontalSwipeDirection
@@ -139,6 +142,14 @@ fun AppleMusicPlayer(
         label = "Fraction",
         transitionSpec = { spring(stiffness = Spring.StiffnessLow) }
     ) { if (it) 1f else 0f }
+    val playbackCoverScale by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.9f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow,
+        ),
+        label = "PlaybackCoverScale",
+    )
 
     val sheetProgress = state.progress
     val expandedUiAlpha = ((sheetProgress - 0.42f) / 0.28f).coerceIn(0f, 1f)
@@ -237,6 +248,7 @@ fun AppleMusicPlayer(
             ),
             keepExpandedContentComposed = true,
             transparentCollapsedContainer = backdrop != null,
+            containerMotion = BottomSheetContainerMotion.Sheet,
             onDismiss = {
                 stateContainer.playerConnection.player.stop()
                 stateContainer.playerConnection.player.clearMediaItems()
@@ -269,6 +281,17 @@ fun AppleMusicPlayer(
                     onNext = stateContainer.playerConnection::seekToNext,
                     drawCover = false,
                     backdrop = backdrop,
+                    modifier = Modifier
+                        .padding(horizontal = FloatingCapsuleHorizontalPadding)
+                        // Sheet motion no longer draws the container shadow; the capsule carries
+                        // its own constant-shape shadow, faded out together with the bar.
+                        .then(
+                            if (backdrop == null) {
+                                Modifier.shadow(8.dp, RoundedCornerShape(24.dp))
+                            } else {
+                                Modifier
+                            }
+                        ),
                 )
             }
         ) {
@@ -284,7 +307,8 @@ fun AppleMusicPlayer(
             )
             FluidBackground(
                 imageUrl = coverUrl,
-                isPlaying = isPlaying,
+                // GL 网格在展开内容可见前不渲染，折叠挂后台时不再空烧 GPU。
+                isPlaying = isPlaying && sheetProgress > 0.25f,
                 renderAlpha = meshBackgroundAlpha,
             )
 
@@ -484,6 +508,9 @@ fun AppleMusicPlayer(
                         alpha = state.revealProgress
                         translationX = finalStart
                         translationY = finalTop
+                        val scale = lerp(1f, playbackCoverScale, sheetProgress)
+                        scaleX = scale
+                        scaleY = scale
                         shadowElevation = mShadowElevation.toPx()
                         shape = RoundedCornerShape(finalRadius)
                         clip = true

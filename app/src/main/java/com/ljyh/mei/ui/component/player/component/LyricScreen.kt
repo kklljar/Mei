@@ -19,12 +19,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import com.ljyh.mei.playback.SmoothPlaybackPosition
 import com.ljyh.mei.R
 import com.ljyh.mei.constants.AccompanimentLyricTextBoldKey
 import com.ljyh.mei.constants.AccompanimentLyricTextSizeKey
@@ -59,6 +63,7 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.KaraokeLyricsView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -73,7 +78,22 @@ fun LyricScreen(
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
-    var animatedPosition by remember { mutableLongStateOf(0) }
+    val playbackPosition = remember { mutableIntStateOf(0) }
+    val playbackClock = remember(playerConnection.player) { SmoothPlaybackPosition() }
+    DisposableEffect(playerConnection.player, playbackClock) {
+        val player = playerConnection.player
+        val listener = object : Player.Listener {
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                playbackClock.reset()
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
     val (normalLyricTextSize, _) = rememberEnumPreference(
         NormalLyricTextSizeKey,
         LyricTextSize.Size24
@@ -110,16 +130,22 @@ fun LyricScreen(
         }
     }
 
-    LaunchedEffect(playerConnection.isPlaying) {
-        if (playerConnection.isPlaying.value) {
-            while (true) {
-                animatedPosition = (playerConnection.player.currentPosition).coerceAtMost(
-                    playerConnection.player.duration
+    LaunchedEffect(playerConnection.player) {
+        while (isActive) {
+            withFrameNanos { frameTimeNanos ->
+                val player = playerConnection.player
+                val duration = player.duration
+                    .takeIf { it > 0L }
+                    ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                    ?: Int.MAX_VALUE.toLong()
+                playbackPosition.intValue = playbackClock.sample(
+                    rawPositionMs = player.currentPosition,
+                    frameTimeNanos = frameTimeNanos,
+                    isPlaying = player.isPlaying,
+                    speed = player.playbackParameters.speed,
+                    durationMs = duration,
                 )
-                delay(50)
             }
-        } else {
-            animatedPosition = playerConnection.player.currentPosition
         }
     }
 
@@ -141,7 +167,7 @@ fun LyricScreen(
                 KaraokeLyricsView(
                     listState = listState,
                     lyrics = lyricData.lyricLine,
-                    currentPosition = { animatedPosition.toInt() },
+                    currentPosition = { playbackPosition.intValue },
                     onLineClicked = { line ->
                         playerConnection.player.seekTo(line.start.toLong())
                         onToggleControls(true)

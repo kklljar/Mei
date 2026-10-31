@@ -11,7 +11,11 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import com.ljyh.mei.constants.ImageCacheLimitMbKey
+import com.ljyh.mei.utils.dataStore
 import com.ljyh.mei.utils.image.ArtworkRequestInterceptor
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 @HiltAndroidApp
 class AppContext : Application(), SingletonImageLoader.Factory {
@@ -53,9 +57,12 @@ class AppContext : Application(), SingletonImageLoader.Factory {
             .build()
     }
     private fun newDiskCache(): DiskCache {
+        val limitMb = runBlocking {
+            dataStore.data.first()[ImageCacheLimitMbKey] ?: 250
+        }
         return DiskCache.Builder()
             .directory(cacheDir.resolve("image_cache"))
-            .maxSizePercent(0.1)
+            .maxSizeBytes(limitMb.coerceIn(50, 2048) * 1024L * 1024L)
             .build()
     }
 }

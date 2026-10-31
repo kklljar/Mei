@@ -211,7 +211,7 @@ fun AppearanceSettings(
 
             SwitchPreference(
                 title = { Text("歌单开启表头") },
-                description = "平板模式下歌单显示表头",
+                description = "平板横屏时在歌曲列表上方显示标题、歌手、专辑和时长列名",
                 icon = { Icon(Icons.Rounded.FormatBold, null) },
                 checked = playlistTrackTableHeader,
                 onCheckedChange = onPlaylistTrackTableHeaderChange

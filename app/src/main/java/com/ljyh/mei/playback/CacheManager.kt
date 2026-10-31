@@ -15,7 +15,11 @@ import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import com.ljyh.mei.constants.MusicCacheLimitMbKey
 import com.ljyh.mei.constants.UserAgent
+import com.ljyh.mei.utils.dataStore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.io.File
@@ -24,8 +28,7 @@ import java.io.File
 @UnstableApi
 object CacheManager {
 
-    // 缓存大小常量，设置为 5 GB，这是一个比较合理的值
-    private const val CACHE_SIZE_BYTES = 1024 * 1024 * 1024L * 10 // 5 GB
+    const val DEFAULT_MUSIC_CACHE_LIMIT_MB = 10 * 1024
 
     // 使用 @Volatile 注解确保多线程环境下的可见性
     @Volatile
@@ -54,7 +57,10 @@ object CacheManager {
      */
     @OptIn(UnstableApi::class)
     private fun createSimpleCache(context: Context): SimpleCache {
-        val evictor = LeastRecentlyUsedCacheEvictor(CACHE_SIZE_BYTES)
+        val limitMb = runBlocking {
+            context.dataStore.data.first()[MusicCacheLimitMbKey] ?: DEFAULT_MUSIC_CACHE_LIMIT_MB
+        }
+        val evictor = LeastRecentlyUsedCacheEvictor(limitMb.coerceIn(256, 20 * 1024) * 1024L * 1024L)
         val databaseProvider: DatabaseProvider = StandaloneDatabaseProvider(context)
         val cacheDir = File(context.cacheDir, "media")
         return SimpleCache(cacheDir, evictor, databaseProvider)
