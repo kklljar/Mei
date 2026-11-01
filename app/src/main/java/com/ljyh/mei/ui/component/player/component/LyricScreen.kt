@@ -3,6 +3,9 @@ package com.ljyh.mei.ui.component.player.component
 
 import android.widget.Toast
 import androidx.annotation.OptIn
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -24,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -61,7 +64,10 @@ import com.ljyh.mei.utils.rememberPreference
 import com.ljyh.mei.utils.setClipboard
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
+import com.mocharealm.accompanist.lyrics.ui.composable.list.rememberLyricsLazyListState
 import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.KaraokeLyricsView
+import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.LyricsAnchor
+import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.LyricsFade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -76,7 +82,18 @@ fun LyricScreen(
     controlsVisible: Boolean,
     onToggleControls: (Boolean) -> Unit
 ) {
-    val listState = rememberLazyListState()
+    val initialLineIndex = remember(lyricData.lyricLine) {
+        val position = playerConnection.player.currentPosition
+        lyricData.lyricLine.lines.indexOfLast { it.start.toLong() <= position }.coerceAtLeast(0)
+    }
+    val listState = key(lyricData.lyricLine) {
+        rememberLyricsLazyListState(initialFirstVisibleItemIndex = initialLineIndex)
+    }
+    var positioningInitialLine by remember(lyricData.lyricLine) { mutableStateOf(true) }
+    LaunchedEffect(listState, lyricData.lyricLine) {
+        if (lyricData.lyricLine.lines.isNotEmpty()) listState.scrollToItem(initialLineIndex)
+        positioningInitialLine = false
+    }
     val context = LocalContext.current
     val playbackPosition = remember { mutableIntStateOf(0) }
     val playbackClock = remember(playerConnection.player) { SmoothPlaybackPosition() }
@@ -168,6 +185,10 @@ fun LyricScreen(
                     listState = listState,
                     lyrics = lyricData.lyricLine,
                     currentPosition = { playbackPosition.intValue },
+                    anchor = LyricsAnchor.Fixed(40.dp),
+                    bottomFade = LyricsFade.Fraction(0.5f),
+                    scrollAnimationSpec = if (positioningInitialLine) snap()
+                        else tween(650, easing = FastOutSlowInEasing),
                     onLineClicked = { line ->
                         playerConnection.player.seekTo(line.start.toLong())
                         onToggleControls(true)

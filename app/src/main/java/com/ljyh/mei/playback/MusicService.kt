@@ -1,6 +1,7 @@
 package com.ljyh.mei.playback
 
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
@@ -48,14 +49,17 @@ import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.CommandButton
+import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
+import androidx.media3.session.SessionToken
 import coil3.ImageLoader
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import com.ljyh.mei.MainActivity
 import com.ljyh.mei.R
 import com.ljyh.mei.constants.IsShuffleModeKey
@@ -169,6 +173,7 @@ class MusicService : MediaLibraryService(),
     private lateinit var transitionController: SmartTransitionController
     val context = this
     private lateinit var mediaSession: MediaLibrarySession
+    private var notificationControllerFuture: ListenableFuture<MediaController>? = null
     private val desktopLyricsToggleCommand = SessionCommand(DESKTOP_LYRICS_TOGGLE_ACTION, Bundle.EMPTY)
     @Volatile private var desktopLyricsEnabled = false
 
@@ -470,6 +475,20 @@ class MusicService : MediaLibraryService(),
             .setBitmapLoader(CoilBitmapLoader(this, singletonImageLoader))
             .build()
 
+        // The app UI talks to this service through its local binder instead of a
+        // MediaController. Keep one controller connected so Media3 activates the
+        // service notification controller and promotes playback to a foreground
+        // service when audio starts.
+        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
+        notificationControllerFuture = MediaController.Builder(this, sessionToken)
+            .buildAsync()
+            .also { future ->
+                future.addListener(
+                    { runCatching { future.get() }.onFailure { Timber.tag("MusicService").e(it, "Failed to connect notification controller") } },
+                    MoreExecutors.directExecutor(),
+                )
+            }
+
         scope.launch {
             dataStore.data
                 .map { it[DesktopLyricsEnabledKey] ?: false }
@@ -744,6 +763,8 @@ class MusicService : MediaLibraryService(),
         if (!restoringQueue) {
             runBlocking { savePlaybackQueue() }
         }
+        notificationControllerFuture?.let(MediaController::releaseFuture)
+        notificationControllerFuture = null
         mediaSession.release()
         player.removeListener(this)
         player.removeListener(sleepTimer)
