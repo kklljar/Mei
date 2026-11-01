@@ -65,8 +65,8 @@ class MediaUriProvider @Inject constructor(
             return ResolvedMediaUri(if (localPath.startsWith("content://")) Uri.parse(localPath) else Uri.fromFile(File(localPath)), baseKey)
         }
         val mode = context.dataStore.data.first().audioSourceMode()
-        // Only LX reads script state; changing mode cannot reuse another resolver's URL.
-        val scripts = if (mode == AudioSourceMode.Lx) scriptStore.snapshot() else emptyList()
+        // Both backup modes may reach LX, so keep its scripts available for fallback too.
+        val scripts = if (mode != AudioSourceMode.Off) scriptStore.snapshot() else emptyList()
         val revision = scripts.joinToString { "${it.id}:${it.enabled}" }.hashCode()
         val lookupKey = "$baseKey|${mode.name}|$revision"
         val recoveryKey = mode.recoveryKey(mediaId)
@@ -79,17 +79,26 @@ class MediaUriProvider @Inject constructor(
             val (skipNetease, excluded) = recovery.snapshot(recoveryKey)
             try {
                 if (!skipNetease) {
-                    val response = apiService.getSongUrlV1(GetSongUrlV1(ids = "[$mediaId]", level = quality))
-                    val data = response.data.firstOrNull { it.id.toString() == mediaId } ?: response.data.firstOrNull()
-                    val url = data?.url?.takeIf { it.isNotBlank() }
-                    if (url != null && data.freeTrialInfo == null) {
-                        val duration = data.time?.takeIf { it > 0 }?.toLong() ?: probe.durationMs(url)
-                        if (duration != null && !PreviewPolicy.isPreview(duration)) {
-                            val resolved = CachedUrl(url, System.currentTimeMillis() + 10 * 60_000, baseKey,
-                                "netease", PlaybackSourceInfo("网易云", data.level), recoveryKey)
-                            urlCache[lookupKey] = resolved
-                            return@withLock selected(mediaId, resolved, recordPlayback)
+                    try {
+                        val response = apiService.getSongUrlV1(GetSongUrlV1(ids = "[$mediaId]", level = quality))
+                        val data = response.data.firstOrNull { it.id.toString() == mediaId } ?: response.data.firstOrNull()
+                        val url = data?.url?.takeIf { it.isNotBlank() }
+                        if (url != null && data.freeTrialInfo == null) {
+                            val duration = data.time?.takeIf { it > 0 }?.toLong() ?: probe.durationMs(url)
+                            if (duration != null && !PreviewPolicy.isPreview(duration)) {
+                                val resolved = CachedUrl(url, System.currentTimeMillis() + 10 * 60_000, baseKey,
+                                    "netease", PlaybackSourceInfo("网易云", data.level), recoveryKey)
+                                urlCache[lookupKey] = resolved
+                                return@withLock selected(mediaId, resolved, recordPlayback)
+                            }
                         }
+                    } catch (c: CancellationException) {
+                        throw c
+                    } catch (e: Exception) {
+                        Timber.tag("AudioSource").w(
+                            "Netease resolution failed: id=%s type=%s",
+                            mediaId, e.javaClass.simpleName,
+                        )
                     }
                 }
                 if (mode == AudioSourceMode.Off) throw SourceNotFoundException("网易云暂无可播放的完整音频，备用音源已关闭")
@@ -119,6 +128,15 @@ class MediaUriProvider @Inject constructor(
                                 "$baseKey|$identity", identity,
                                 PlaybackSourceInfo("解灰 · ${sourceDisplayName(audio.track.id.source)}", null), recoveryKey)
                         }
+                    },
+                    onNoResult = { source ->
+                        Timber.tag("AudioSource").i("%s returned no match: id=%s", source, mediaId)
+                    },
+                    onFailure = { source, error ->
+                        Timber.tag("AudioSource").w(
+                            "%s resolution failed: id=%s type=%s",
+                            source, mediaId, error.javaClass.simpleName,
+                        )
                     },
                 ) ?: throw SourceNotFoundException("${mode.label}未找到可播放的完整音频")
                 urlCache[lookupKey] = resolved

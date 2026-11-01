@@ -191,18 +191,18 @@ fun LxSourcesScreen(scrollBehavior: TopAppBarScrollBehavior, viewModel: LxSource
                     }
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     ListPreference(
-                        title = { Text("备用音源模式") },
-                        description = "LX 与多平台解灰互斥，避免同一次播放重复请求",
+                        title = { Text("备用音源解析顺序") },
+                        description = "网易云不可用时先尝试所选音源；无结果后自动尝试另一种",
                         selectedValue = audioSourceMode,
                         values = AudioSourceMode.entries.toList(),
                         valueText = { it.label },
                         onValueSelected = onAudioSourceModeChange,
                     )
                     Text(
-                        if (audioSourceMode == AudioSourceMode.Lx) {
-                            "网易云无法播放或返回试听时自动尝试。排序靠前的音源先启动，优先使用最先通过校验的结果。"
-                        } else {
-                            "当前未启用 LX。已导入的脚本会保留，选择 LX 自定义音源后用于播放。"
+                        when (audioSourceMode) {
+                            AudioSourceMode.Lx -> "网易云不可用时先尝试 LX；没有合适结果时再尝试多平台解灰。"
+                            AudioSourceMode.Unblock -> "网易云不可用时先尝试多平台解灰；没有合适结果时再尝试 LX。"
+                            AudioSourceMode.Off -> "备用音源已关闭，仅使用网易云官方音源。已导入的 LX 脚本会保留。"
                         },
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

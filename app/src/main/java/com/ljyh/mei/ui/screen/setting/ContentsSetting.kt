@@ -170,18 +170,18 @@ fun ContentsSetting(
             val selectedMode = runCatching { AudioSourceMode.valueOf(audioSourceModeStr) }
                 .getOrDefault(AudioSourceMode.Lx)
             ListPreference(
-                title = { Text("备用音源模式") },
-                description = "LX 与多平台解灰互斥，避免同一次播放重复请求",
+                title = { Text("备用音源解析顺序") },
+                description = "网易云不可用时先尝试所选音源；无结果后自动尝试另一种",
                 icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
                 selectedValue = selectedMode,
                 values = AudioSourceMode.entries.toList(),
                 valueText = { it.label },
                 onValueSelected = { onAudioSourceModeChange(it.name) },
             )
-            if (selectedMode == AudioSourceMode.Lx) {
+            if (selectedMode != AudioSourceMode.Off) {
                 PreferenceEntry(
                     title = { Text("LX 自定义音源") },
-                    description = "导入、排序与检查 JS 音源脚本",
+                    description = "管理 LX 脚本；LX 作为首选或回退音源时使用",
                     icon = { Icon(Icons.Rounded.CloudSync, contentDescription = null) },
                     onClick = { Screen.LxSources.navigate(navController) },
                 )
