@@ -188,7 +188,10 @@ internal class DesktopLyricsController(
                     karaokeFontSizeState.intValue = lyricsFontSize
                     karaokeActiveColorState.value = ComposeColor(lyricsColor)
 
-                    if (settings.enabled && !wasEnabled) {
+                    // The overlay may fail temporarily (permission transition, display restart,
+                    // or a stale WindowManager token). Restart the ticker whenever it is missing,
+                    // even if the persisted switch already remains enabled.
+                    if (settings.enabled && (!wasEnabled || ticker == null)) {
                         overlayEnabled = true
                         controlsVisible = true
                         val snapshot = preferences.first()
@@ -201,7 +204,8 @@ internal class DesktopLyricsController(
                                 } catch (error: RuntimeException) {
                                     Timber.e(error, "Desktop lyrics overlay failed")
                                     hide()
-                                    break
+                                    // Do not permanently kill desktop lyrics after one transient
+                                    // WindowManager failure. The next iteration retries the overlay.
                                 }
                                 delay(180)
                             }
