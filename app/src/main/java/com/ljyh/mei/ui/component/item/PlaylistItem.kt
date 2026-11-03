@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.ljyh.mei.constants.CommonImageRadius
@@ -48,6 +51,7 @@ fun PlaylistItem(
     onClick: (String) -> Unit
 ) {
     var offset by remember { mutableFloatStateOf(0f) }
+    val revealWidth = with(LocalDensity.current) { 96.dp.toPx() }
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))) {
         if (onDelete != null) {
             Box(
@@ -56,30 +60,31 @@ fun PlaylistItem(
                     .background(Color(0xFFD32F2F)),
                 contentAlignment = Alignment.CenterEnd,
             ) {
-                IconButton(
-                    onClick = { onDelete(playlist.id); offset = 0f },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color(0xFFB71C1C),
-                        contentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .size(64.dp)
-                        .padding(end = 8.dp),
+                Box(
+                    Modifier.width(96.dp).fillMaxHeight().background(Color(0xFFB71C1C)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.Delete, "删除歌单", tint = Color.White, modifier = Modifier.size(28.dp))
+                    IconButton(
+                        onClick = { onDelete(playlist.id); offset = 0f },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color(0xFFB71C1C),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Icon(Icons.Rounded.Delete, "删除歌单", tint = Color.White, modifier = Modifier.size(28.dp))
+                    }
                 }
             }
         }
         Row(
         modifier = Modifier
+            .offset { IntOffset(offset.roundToInt(), 0) }
             .fillMaxWidth().background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp, vertical = 10.dp)
-            .offset { IntOffset(offset.roundToInt(), 0) }
-            .zIndex(1f)
             .pointerInput(playlist.id, onDelete) {
                 if (onDelete != null) detectHorizontalDragGestures(
-                    onHorizontalDrag = { change, amount -> change.consume(); offset = (offset + amount).coerceIn(-96f, 0f) },
-                    onDragEnd = { if (offset > -48f) offset = 0f else offset = -96f },
+                    onHorizontalDrag = { change, amount -> change.consume(); offset = (offset + amount).coerceIn(-revealWidth, 0f) },
+                    onDragEnd = { if (offset > -revealWidth / 2) offset = 0f else offset = -revealWidth },
                     onDragCancel = { offset = 0f },
                 )
             }
