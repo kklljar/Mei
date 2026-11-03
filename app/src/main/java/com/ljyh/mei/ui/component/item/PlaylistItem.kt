@@ -1,17 +1,36 @@
 package com.ljyh.mei.ui.component.item
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,13 +44,49 @@ import com.ljyh.mei.utils.smallImage
 @Composable
 fun PlaylistItem(
     playlist: Playlist,
+    onDelete: ((String) -> Unit)? = null,
     onClick: (String) -> Unit
 ) {
-
-    Row(
+    var offset by remember { mutableFloatStateOf(0f) }
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))) {
+        if (onDelete != null) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(Color(0xFFD32F2F)),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                IconButton(
+                    onClick = { onDelete(playlist.id); offset = 0f },
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color(0xFFB71C1C),
+                        contentColor = Color.White,
+                    ),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .padding(end = 8.dp),
+                ) {
+                    Icon(Icons.Rounded.Delete, "删除歌单", tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            }
+        }
+        Row(
         modifier = Modifier
+            .fillMaxWidth().background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp, vertical = 10.dp)
-            .clickable { onClick(playlist.id) },
+            .offset { IntOffset(offset.roundToInt(), 0) }
+            .zIndex(1f)
+            .pointerInput(playlist.id, onDelete) {
+                if (onDelete != null) detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, amount -> change.consume(); offset = (offset + amount).coerceIn(-96f, 0f) },
+                    onDragEnd = { if (offset > -48f) offset = 0f else offset = -96f },
+                    onDragCancel = { offset = 0f },
+                )
+            }
+            .then(if (onDelete != null) Modifier.combinedClickable(
+                onClick = { if (offset < 0f) offset = 0f else onClick(playlist.id) },
+                onLongClick = { onDelete(playlist.id) },
+            ) else Modifier.combinedClickable(onClick = { onClick(playlist.id) })),
         verticalAlignment = Alignment.CenterVertically,
 
         ) {
@@ -65,5 +120,6 @@ fun PlaylistItem(
             )
         }
 
+        }
     }
 }

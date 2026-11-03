@@ -2,12 +2,24 @@ package com.ljyh.mei.ui.screen.playlist
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ListItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +82,58 @@ fun PlaylistScreen(
 
     // 3. Paging 数据
     var isPlaylistSearchActive by remember { mutableStateOf(false) }
+    var confirmDeletePlaylist by remember { mutableStateOf(false) }
+    var deletingPlaylist by remember { mutableStateOf(false) }
+    var showTransferPicker by remember { mutableStateOf(false) }
+    var transferring by remember { mutableStateOf(false) }
+    val myPlaylists by viewModel.playlist.collectAsState()
+    LaunchedEffect(showTransferPicker) { if (showTransferPicker) viewModel.getAllMePlaylist() }
+    if (showTransferPicker) {
+        ModalBottomSheet(onDismissRequest = { if (!transferring) showTransferPicker = false }) {
+            val sources = myPlaylists.filter { it.id != id.toString() }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.6f).navigationBarsPadding()
+            ) {
+                item {
+                    Text("选择来源歌单", style = androidx.compose.material3.MaterialTheme.typography.titleLarge, modifier = Modifier.padding(20.dp))
+                }
+                items(sources, key = { it.id }) { source ->
+                    ListItem(
+                        headlineContent = { Text(source.title) },
+                        supportingContent = { Text("${source.count} 首歌曲") },
+                        modifier = Modifier.clickable(enabled = !transferring) {
+                            transferring = true
+                            viewModel.transferPlaylistSongs(source.id, id.toString()) { ok, count ->
+                                transferring = false; showTransferPicker = false
+                                Toast.makeText(context, if (ok) "已从“${source.title}”添加 $count 首歌曲" else "部分歌曲添加失败", Toast.LENGTH_LONG).show()
+                                viewModel.getPlaylistDetail(id.toString())
+                            }
+                        }
+                    )
+                }
+                if (sources.isEmpty()) item {
+                    Text("没有其他可用的创建歌单", modifier = Modifier.padding(20.dp))
+                }
+            }
+        }
+    }
+    if (confirmDeletePlaylist) {
+        AlertDialog(
+            onDismissRequest = { if (!deletingPlaylist) confirmDeletePlaylist = false },
+            title = { Text("删除歌单？") },
+            text = { Text("删除后无法恢复，确定要删除这个歌单吗？") },
+            confirmButton = { TextButton(enabled = !deletingPlaylist, onClick = {
+                deletingPlaylist = true
+                viewModel.deletePlaylist(id.toString()) { success ->
+                    deletingPlaylist = false
+                    confirmDeletePlaylist = false
+                    if (success) navController.navigateUp()
+                    else Toast.makeText(context, "删除歌单失败，请重试", Toast.LENGTH_SHORT).show()
+                }
+            }) { Text(if (deletingPlaylist) "删除中…" else "删除") } },
+            dismissButton = { TextButton(enabled = !deletingPlaylist, onClick = { confirmDeletePlaylist = false }) { Text("取消") } },
+        )
+    }
     var playlistSearchQuery by remember { mutableStateOf("") }
     val pagingFlow = remember(id, playlistDetail, playlistSearchQuery, removedTrackIds) {
         viewModel.searchPlaylistTracks(playlistDetail, playlistSearchQuery, removedTrackIds)
@@ -349,6 +413,9 @@ fun PlaylistScreen(
     } else {
         CommonSongListScreen(
             uiData = uiData,
+            onAddSong = { showTransferPicker = true },
+            onEditPlaylist = { Toast.makeText(context, "编辑歌单暂不可用", Toast.LENGTH_SHORT).show() },
+            onDeletePlaylist = { confirmDeletePlaylist = true },
             pagingItems = lazyPagingItems,
             isLoading = playlistDetail is Resource.Loading,
 

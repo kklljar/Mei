@@ -26,7 +26,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -47,6 +47,7 @@ import coil3.compose.AsyncImage
 import com.ljyh.mei.data.model.MediaMetadata
 import com.ljyh.mei.data.model.metadata
 import com.ljyh.mei.extensions.mediaItems
+import com.ljyh.mei.playback.queue.queueEntryId
 import com.ljyh.mei.ui.local.LocalPlayerConnection
 import com.ljyh.mei.utils.TimeUtils.formatDuration
 import com.ljyh.mei.utils.smallImage
@@ -79,14 +80,16 @@ fun PlaylistContent(
     }
     val currentMediaItemIndex by playerConnection.currentMediaItemIndex.collectAsState()
 
-    LaunchedEffect(playerConnection) {
-        playerConnection.player.addListener(object : Player.Listener {
+    DisposableEffect(playerConnection) {
+        val listener = object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 val newItems = playerConnection.player.mediaItems
                 mediaItems.clear()
                 mediaItems.addAll(newItems)
             }
-        })
+        }
+        playerConnection.player.addListener(listener)
+        onDispose { playerConnection.player.removeListener(listener) }
     }
 
     Column(modifier = modifier) {
@@ -125,10 +128,10 @@ fun PlaylistContent(
         ) {
             itemsIndexed(
                 mediaItems,
-                key = { _, item -> item.mediaId }) { index, mediaItem ->
+                key = { index, item -> "${item.queueEntryId ?: item.mediaId}:$index" }) { index, mediaItem ->
                 ReorderableItem(
                     reorderableLazyListState,
-                    key = mediaItem.mediaId
+                    key = "${mediaItem.queueEntryId ?: mediaItem.mediaId}:$index"
                 ) { isDragging ->
                     mediaItem.metadata?.let {
                         PlaylistItem(
@@ -149,10 +152,6 @@ fun PlaylistContent(
                             onRemoveClick = {
                                 if (mediaItems.size > 1) {
                                     playerConnection.player.removeMediaItem(index)
-                                    mediaItems.removeAt(index)
-                                    if (index == currentMediaItemIndex) {
-                                        playerConnection.seekToNext()
-                                    }
                                 } else {
                                     Toast.makeText(
                                         context,

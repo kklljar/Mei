@@ -256,6 +256,21 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
+    fun transferPlaylistSongs(sourceId: String, targetId: String, onComplete: (Boolean, Int) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            val detail = repository.getPlaylistDetail(sourceId)
+            if (detail !is Resource.Success) { onComplete(false, 0); return@launch }
+            val ids = detail.data.playlist.trackIds.map { it.id }
+            var added = 0
+            var ok = true
+            ids.map(Long::toString).chunked(100).forEach { chunk ->
+                val result = repository.manipulateTrack("add", targetId, chunk.joinToString(","))
+                if (result is Resource.Success && result.data.code == 200) added += chunk.size else ok = false
+            }
+            onComplete(ok, added)
+        }
+    }
+
 
     fun deleteSongFromPlaylist(
         pid: String,
@@ -353,10 +368,14 @@ class PlaylistViewModel @Inject constructor(
     /*
      * 删除歌单
      */
-    fun deletePlaylist(id: String) {
+    fun deletePlaylist(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             _deletePlaylist.value = Resource.Loading
-            _deletePlaylist.value = repository.deletePlaylist(id)
+            val result = repository.deletePlaylist(id)
+            _deletePlaylist.value = result
+            val success = result is Resource.Success && result.data.code == 200
+            if (success) localPlaylistRepository.deletePlaylistById(id)
+            onResult(success)
         }
     }
 
